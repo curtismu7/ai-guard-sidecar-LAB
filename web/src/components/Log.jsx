@@ -8,7 +8,7 @@ export default function Log({ decisions }) {
     <section aria-labelledby="log-h" className="card">
       <div className="card-head"><h2 id="log-h">Decision log</h2><span className="fine">newest first, in memory, PII masked</span></div>
       {!decisions.length ? <p className="empty">No decisions yet.</p> : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Decision log table, scrollable">
           <table data-testid="log">
             <thead><tr><th scope="col">#</th><th scope="col">Time</th><th scope="col">What</th><th scope="col">Decision</th><th scope="col">Why</th><th scope="col">Fault</th></tr></thead>
             <tbody>

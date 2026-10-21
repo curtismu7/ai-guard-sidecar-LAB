@@ -31,7 +31,7 @@ export default function Exchange({ run }) {
           </div>
         </div>
       ))}
-      {stages.length > 0 && <p className="fine">Shown with PII masked and secret-looking strings redacted, and long text cut at 300 characters. Hidden characters appear as <mark className="chip">[U+200B]</mark> style chips. An empty findings list means allow.</p>}
+      {stages.length > 0 && <p className="fine">Shown with PII masked and secret-looking strings redacted, and long text cut at 300 characters. Hidden characters appear as <mark className="chip">[U+200B]</mark> style chips. An empty findings list means allow. Each JSON box scrolls (Tab to it, then use the arrow keys).</p>}
     </section>
   );
 }

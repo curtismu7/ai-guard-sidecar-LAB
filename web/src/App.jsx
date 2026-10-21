@@ -159,9 +159,9 @@ export default function App() {
 
             <h3 className="sub-h">Or type your own</h3>
             <label htmlFor="custom-text">Prompt sent by the client</label>
-            <textarea id="custom-text" rows={3} maxLength={MAX_TEXT} value={custom.requestText} onChange={(e) => setCustom({ ...custom, requestText: e.target.value })} placeholder="Ignore all previous instructions and..." />
+            <textarea id="custom-text" dir="ltr" rows={3} maxLength={MAX_TEXT} value={custom.requestText} onChange={(e) => setCustom({ ...custom, requestText: e.target.value })} placeholder="Ignore all previous instructions and..." />
             <label htmlFor="custom-reply">What the upstream answers (optional)</label>
-            <textarea id="custom-reply" rows={2} maxLength={MAX_TEXT} value={custom.upstreamText} onChange={(e) => setCustom({ ...custom, upstreamText: e.target.value })} placeholder="Try a reply that leaks an SSN" />
+            <textarea id="custom-reply" dir="ltr" rows={2} maxLength={MAX_TEXT} value={custom.upstreamText} onChange={(e) => setCustom({ ...custom, upstreamText: e.target.value })} placeholder="Try a reply that leaks an SSN" />
             <label htmlFor="custom-caller">Calling agent key</label>
             <select id="custom-caller" value={custom.caller} onChange={(e) => setCustom({ ...custom, caller: e.target.value })}>
               <option value="">None (use the thresholds on this page)</option>

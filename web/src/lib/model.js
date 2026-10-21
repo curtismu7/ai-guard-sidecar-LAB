@@ -33,7 +33,8 @@ export function previewStage(stage, thresholds, failClosed) {
   if (!stage.sidecar.ok) return failClosed ? { decision: "block", reason: "sidecar_error_fail_closed" } : { decision: "allow", reason: "sidecar_error_fail_open" };
   const blocks = (stage.evaluations || []).some((e) => findingBlocks(e, thresholds));
   if (blocks) return { decision: "block", reason: "threshold_met" };
-  return { decision: "allow", reason: stage.evaluations?.length ? "alert_only_below_threshold" : "no_findings" };
+  if (!stage.evaluations?.length) return { decision: "allow", reason: "no_findings" };
+  return { decision: "allow", reason: stage.evaluations.every((e) => thresholds[e.category] === "none") ? "alert_only_not_enforcing" : "alert_only_below_threshold" };
 }
 
 // What this recorded run would decide under the thresholds/fail mode now. `known` is false when a stage the new
@@ -53,6 +54,7 @@ export const REASON_TEXT = {
   no_findings: "The sidecar returned no findings, so the gateway allows.",
   threshold_met: "A finding is at or above its category's block threshold, so the gateway blocks.",
   alert_only_below_threshold: "There are findings, but all are below their block threshold. The gateway allows and raises an alert.",
+  alert_only_not_enforcing: "There are findings, but this category is set to never block (threshold none), so the gateway allows and raises an alert.",
   sidecar_error_fail_closed: "The sidecar failed and Fail Closed is on, so the gateway blocks.",
   sidecar_error_fail_open: "The sidecar failed and Fail Closed is off, so the gateway allows, unchecked.",
 };

@@ -23,7 +23,7 @@ export default function Findings({ run, thresholds, failClosed }) {
             {!st.sidecar.ok && <p className="fault-note">Sidecar did not answer: <code>{st.sidecar.error}</code> after {st.sidecar.latencyMs} ms.</p>}
             {st.sidecar.ok && !st.evaluations.length && <p className="fine">Empty findings list.</p>}
             {st.evaluations.length > 0 && (
-              <div className="table-wrap">
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={`${st.stage === "request" ? "Request" : "Response"} findings table, scrollable`}>
                 <table>
                   <thead><tr><th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Score</th><th scope="col">Block at</th><th scope="col">Result</th><th scope="col">Message</th></tr></thead>
                   <tbody>

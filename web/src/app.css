@@ -37,7 +37,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px; outline: none; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; box-shadow: var(--shadow); min-width: 0; }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 8px; }
-.grid { display: grid; gap: 16px; }
+.grid { display: grid; gap: 16px; align-items: start; }
 .grid.two { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 980px) { .grid.two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } .grid.two.even { grid-template-columns: 1fr 1fr; } }
 .grid > .card { margin-bottom: 0; }
@@ -57,7 +57,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px; outline: none; }
 .hint, .fine { color: var(--muted); font-size: .84rem; }
 .inline { display: inline-flex; gap: 6px; align-items: center; }
 select, textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
-textarea { width: 100%; resize: vertical; }
+/* isolate-override + ltr: a hidden bidi control (U+202E) cannot visually reorder what is typed. */
+textarea { width: 100%; resize: vertical; direction: ltr; unicode-bidi: isolate-override; }
 label { display: block; font-weight: 600; font-size: .9rem; margin-top: 8px; }
 .inline, .switch, .radios label, .pick { font-weight: 500; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
@@ -86,13 +87,16 @@ legend { font-weight: 600; font-size: .85rem; padding: 0 4px; }
 .react-flow__edge-text { font-size: 11px; }
 .react-flow__handle { opacity: 0; pointer-events: none; }
 .react-flow__attribution { font-size: 9px; }
-.react-flow__controls-button { color: #17211f; }
+.react-flow__controls-button { background: var(--surface); color: var(--text); border-bottom: 1px solid var(--border); }
+.react-flow__controls-button:hover { background: var(--surface-2); }
+.react-flow__controls-button svg { fill: currentColor; max-width: 14px; max-height: 14px; }
+.react-flow__controls { box-shadow: 0 0 0 1px var(--border); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 .pane h4 .sub, .sub { color: var(--muted); font-weight: 400; }
 .panes { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 760px) { .panes { grid-template-columns: 1fr 1fr; } }
-pre { margin: 6px 0 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow: auto; max-height: 320px; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre { margin: 6px 0 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow: auto; max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .exchange + .exchange { margin-top: 14px; }
 mark.chip { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: 0 3px; font-family: ui-monospace, Menlo, monospace; font-size: .85em; }
 

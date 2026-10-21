@@ -23,7 +23,7 @@ describe("live preview", () => {
   it("flips a recorded block to allow when the category becomes alert-only", () => {
     const run = injectionRun();
     expect(previewRun(run, T, true)).toMatchObject({ outcome: "block", blockedAt: "request" });
-    expect(previewRun(run, { ...T, prompt_injection: "none" }, true)).toMatchObject({ outcome: "allow", reason: "alert_only_below_threshold" });
+    expect(previewRun(run, { ...T, prompt_injection: "none" }, true)).toMatchObject({ outcome: "allow", reason: "alert_only_not_enforcing" });
     expect(previewRun(run, { ...T, prompt_injection: "none" }, true).known).toBe(false);
   });
   it("applies the fail mode to a failed stage", () => {

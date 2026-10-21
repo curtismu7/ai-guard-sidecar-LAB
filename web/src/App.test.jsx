@@ -1,8 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
+import Log from "./components/Log.jsx";
 import { POLICY, benignRun, injectionRun, outageRun } from "./test/fixtures.js";
 
 const SCENARIOS = [
@@ -155,5 +158,28 @@ describe("App", () => {
     await ready();
     await user.click(screen.getByRole("button", { name: /Switch to dark theme/ }));
     expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("scrollable tables are keyboard-focusable named regions, and the custom text boxes force left-to-right", async () => {
+    const user = userEvent.setup();
+    await ready();
+    expect(document.getElementById("custom-text")).toHaveAttribute("dir", "ltr");
+    expect(document.getElementById("custom-reply")).toHaveAttribute("dir", "ltr");
+    await user.click(screen.getByLabelText("Direct prompt injection"));
+    await user.click(screen.getByRole("button", { name: "Run scenario" }));
+    await screen.findByTestId("findings-request");
+    const findings = screen.getByRole("region", { name: /findings table, scrollable/ });
+    expect(findings).toHaveAttribute("tabindex", "0");
+    cleanup();
+    render(<Log decisions={[{ id: 1, at: "2026-01-01T00:00:00Z", label: "x", outcome: "allow", reason: "no_findings" }]} />);
+    expect(screen.getByRole("region", { name: /Decision log table, scrollable/ })).toHaveAttribute("tabindex", "0");
+  });
+
+  it("the diagram zoom buttons take their colours from the theme tokens, not a fixed dark icon", () => {
+    const css = fs.readFileSync(path.resolve(process.cwd(), "src/app.css"), "utf8");
+    const rule = css.match(/\.react-flow__controls-button \{[^}]*\}/)[0];
+    expect(rule).toMatch(/background:\s*var\(--surface\)/);
+    expect(rule).toMatch(/color:\s*var\(--text\)/);
+    expect(css).toMatch(/\.react-flow__controls-button svg \{[^}]*fill:\s*currentColor/);
   });
 });
