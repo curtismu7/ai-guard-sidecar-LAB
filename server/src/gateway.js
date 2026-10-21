@@ -84,6 +84,9 @@ async function readBounded(res) {
 }
 
 // POST units to {base}/inspect. Never throws: -> { ok, status, latencyMs, findings? , error? }
+// The exact /inspect request body the gateway sends (also used by the UI viewer, with the text made safe first).
+export const inspectBody = (units) => ({ tenant: 'demo-tenant', user: 'demo-user', app_name: 'mock-gateway', units });
+
 export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis.fetch) {
   const started = Date.now();
   const ctl = new AbortController();
@@ -93,7 +96,7 @@ export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis
     const res = await fetchImpl(`${base}/inspect`, {
       method: 'POST', redirect: 'error', signal: ctl.signal,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tenant: 'demo-tenant', user: 'demo-user', app_name: 'mock-gateway', units }),
+      body: JSON.stringify(inspectBody(units)),
     });
     if (res.status !== 200) { await res.body?.cancel?.().catch(() => {}); return done({ ok: false, status: res.status, error: `sidecar_http_${res.status}` }); }
     let findings;
@@ -125,10 +128,19 @@ export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch } = {})
   async function inspectStage(stage, unit, policy) {
     const call = await callSidecar(base, [unit], policy.timeoutMs, fetchImpl);
     const d = decide(call, policy);
+    // What the teaching viewer shows: the request body as sent, and the answer in contract shape. Both are display
+    // copies: text is masked and made inert, the sidecar answer was sanitised by callSidecar.
+    const exchange = {
+      request: inspectBody([{ role: revealText(unit.role, 64), direction: unit.direction, text: safeSnippet(unit.text, 300) }]),
+      response: call.ok
+        ? { status: 200, body: { findings: call.findings.map((f) => ({ category: f.category, severity: f.severity, location: { index: f.index }, messages: f.messages, contents: f.contents })) } }
+        : { status: call.status, error: call.error },
+    };
     return {
       stage,
       unit: { role: revealText(unit.role, 64), direction: unit.direction, chars: unit.text.length, text: safeSnippet(unit.text, 300) },
       sidecar: { ok: call.ok, status: call.status, latencyMs: call.latencyMs, error: call.error ?? null },
+      exchange,
       ...d,
     };
   }

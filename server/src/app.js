@@ -1,5 +1,8 @@
 // The main server: the mock gateway API under /api. createApp() is what the tests use.
 // Every string in a response was masked (PII) and made inert (hidden characters visible) before it was stored.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { createHealth } from './health.js';
 import { Invalid, QueueFull, SidecarDown, createService } from './service.js';
@@ -10,12 +13,23 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 const bad = (res, message, status = 400) => res.status(status).json({ error: status === 404 ? 'not_found' : 'bad_request', message });
 const API_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' };
 
-export function createApp({ service, health = createHealth() } = {}) {
+export const DEFAULT_WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
+// The built UI: same-origin scripts, styles, images and fetches only. (style-src allows inline styles: React Flow sets them.)
+export const UI_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+// webDist: directory with the built UI (web/dist). null disables static serving; a missing directory leaves / a JSON 404.
+export function createApp({ service, health = createHealth(), webDist = DEFAULT_WEB_DIST } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(hostGuard);
   app.use(originGuard);
   app.use((_req, res, next) => { res.set(API_HEADERS); next(); });
+  if (webDist && fs.existsSync(path.join(webDist, 'index.html'))) {
+    app.use(express.static(webDist, {
+      index: 'index.html', dotfiles: 'ignore',
+      setHeaders: (res) => res.set({ ...API_HEADERS, 'Content-Security-Policy': UI_CSP }),
+    }));
+  }
 
   const api = express.Router();
   api.use(credentialGuard);
@@ -71,7 +85,7 @@ export function createApp({ service, health = createHealth() } = {}) {
 
 // Boot the main server on `port`. Unless `sidecarUrl` points at an external sidecar, an embedded stand-in sidecar is
 // started on `embeddedPort` (loopback) and the gateway calls it over HTTP like any other.
-export async function startHttpServer({ port = serverPort(), host = bindHost(), env = process.env, embeddedPort = embeddedSidecarPort(env), sidecarUrl = env.AI_GUARD_SIDECAR_URL, service: given } = {}) {
+export async function startHttpServer({ port = serverPort(), host = bindHost(), env = process.env, embeddedPort = embeddedSidecarPort(env), sidecarUrl = env.AI_GUARD_SIDECAR_URL, service: given, webDist } = {}) {
   assertBindAllowed(host, env);
   if (!portInRange(port)) throw new Error(`port ${port} is outside 6500-6549`);
   if (sidecarUrl) assertSidecarUrl(sidecarUrl);
@@ -81,7 +95,7 @@ export async function startHttpServer({ port = serverPort(), host = bindHost(), 
   const health = createHealth({ env, probe });
   await health.ready;
   return new Promise((resolve, reject) => {
-    const httpServer = createApp({ service, health }).listen(port, host);
+    const httpServer = createApp({ service, health, ...(webDist === undefined ? {} : { webDist }) }).listen(port, host);
     const cleanup = async () => { health.stop(); await embedded?.close(); };
     httpServer.once('error', async (e) => { await cleanup(); reject(e); });
     httpServer.once('listening', () => {
