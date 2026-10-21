@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { test } from 'node:test';
 import express from 'express';
 import { assertBindAllowed, assertSidecarUrl, credentialGuard, hostGuard, isLoopbackHost, originGuard, parseHost, portInRange } from '../src/safety.js';
@@ -53,5 +54,29 @@ test('guards: Host (DNS rebinding), cross-site, Origin, content type, credential
     assert.equal((await request(g.port, 'POST', '/x', { body: 'a=b', headers: { 'content-type': 'text/plain' } })).status, 415);
     assert.equal((await request(g.port, 'GET', '/x', { headers: { authorization: 'Bearer abcdef' } })).status, 400);
     assert.equal((await request(g.port, 'GET', '/x', { headers: { 'x-api-key': 'k' } })).status, 400);
+  } finally { await g.close(); }
+});
+
+test('guards: the Origin must be exactly the canonical http origin (not https, not a differently written scheme)', async () => {
+  const g = await guarded();
+  try {
+    const post = (origin) => request(g.port, 'POST', '/x', { body: {}, headers: { origin } });
+    assert.equal((await post(`http://127.0.0.1:${g.port}`)).status, 200);
+    assert.equal((await post(`https://127.0.0.1:${g.port}`)).status, 403, 'https is a different origin');
+    assert.equal((await post(`HTTP://127.0.0.1:${g.port}`)).status, 403, 'not the canonical spelling');
+    assert.equal((await post(`http://127.0.0.1:${g.port}/`)).status, 403, 'an origin has no path');
+    assert.equal((await post('null')).status, 403);
+  } finally { await g.close(); }
+});
+
+test('guards: a chunked body (no Content-Length) that is not JSON is refused with 415', async () => {
+  const g = await guarded();
+  try {
+    const status = await new Promise((resolve, reject) => {
+      const req = http.request({ host: '127.0.0.1', port: g.port, method: 'POST', path: '/x', headers: { 'content-type': 'text/plain', 'transfer-encoding': 'chunked' } }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+      req.on('error', reject);
+      req.write('a=b'); req.end();
+    });
+    assert.equal(status, 415);
   } finally { await g.close(); }
 });

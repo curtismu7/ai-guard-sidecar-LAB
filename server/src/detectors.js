@@ -1,7 +1,7 @@
 // STAND-IN detectors. Deterministic heuristics, no model, no network. They exist so the sidecar contract can be taught
 // offline. They are NOT a prompt-injection classifier and say nothing about how any real classifier performs: detection
 // quality is a property of the model you deploy, and these rules are weak on purpose (see STAND_IN_LIMITS).
-import { hasInvisible } from './sanitize.js';
+import { hasInvisible, normalizeForDetection } from './sanitize.js';
 import { findPii } from './pii.js';
 
 export const ENGINE = 'stand-in-heuristics';
@@ -23,11 +23,12 @@ const round2 = (n) => Math.round(n * 100) / 100;
 
 // The stand-in "classifier": label scores like a text-classification pipeline (INJECTION, JAILBREAK, SAFE).
 export function classify(text) {
-  const t = String(text ?? '');
+  const raw = String(text ?? '');
+  const t = normalizeForDetection(raw);
   const miss = { INJECTION: 1, JAILBREAK: 1 };
   const matched = [];
   for (const r of RULES) {
-    if (r.re ? r.re.test(t) : r.test(t)) { miss[r.label] *= 1 - r.weight; matched.push(r.id); }
+    if (r.re ? r.re.test(t) : r.test(raw)) { miss[r.label] *= 1 - r.weight; matched.push(r.id); }
   }
   const injection = round2(1 - miss.INJECTION); const jailbreak = round2(1 - miss.JAILBREAK);
   const safe = round2(1 - Math.max(injection, jailbreak));
@@ -73,7 +74,7 @@ export function detectUnit(unit, cfg) {
     }
   }
   if (cfg.rails.regex_pii) {
-    const spans = findPii(text);
+    const spans = findPii(normalizeForDetection(text));
     if (spans.length) {
       const kinds = [...new Set(spans.map((s) => s.kind))];
       const severity = spans.some((s) => s.severity === 'high') ? 'high' : 'medium';

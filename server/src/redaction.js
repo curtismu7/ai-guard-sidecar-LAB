@@ -26,7 +26,8 @@ export function redactUrl(value) {
   }
 }
 
-const NAME = '[\\w-]*(?:api[-_]?key|token|secret|passw(?:or)?d|passwd|credential)[\\w-]*';
+// Affixes are bounded: an unbounded [\\w-]* before a keyword makes the scan quadratic on long runs like "a-a-a-".
+const NAME = '[\\w-]{0,40}(?:api[-_]?key|token|secret|passw(?:or)?d|passwd|credential)[\\w-]{0,40}';
 const VALUE = '("[^"]*"|\'[^\']*\'|[^\\s,;]+)';
 
 export function redactText(value) {
@@ -36,7 +37,7 @@ export function redactText(value) {
     .replace(/\bhttps?:\/\/[^\s"'<>]+/gi, (m) => redactUrl(m))
     .replace(/\b(Set-Cookie|Cookie)(\s*:\s*)(?!\[REDACTED\])[^\s][^\r\n]*/gi, `$1$2${MARK}`)
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{6,}/gi, `$1 ${MARK}`)
-    .replace(/(--?[\w-]*(?:api[-_]?key|token|secret|passw(?:or)?d)[\w-]*)([=\s]+)(?!\[REDACTED\])("[^"]*"|'[^']*'|[^\s]+)/gi, `$1$2${MARK}`)
+    .replace(/(--?[\w-]{0,40}(?:api[-_]?key|token|secret|passw(?:or)?d)[\w-]{0,40})([=\s]+)(?!\[REDACTED\])("[^"]*"|'[^']*'|[^\s]+)/gi, `$1$2${MARK}`)
     .replace(new RegExp(`\\b(${NAME})(=)(?!\\[REDACTED\\])${VALUE}`, 'gi'), `$1$2${MARK}`)
     .replace(new RegExp(`\\b(${NAME})(["']?\\s*:\\s*)(?!["']?\\[REDACTED\\])${VALUE}`, 'gi'), `$1$2${MARK}`)
     .replace(/\b(Proxy-)?Authorization(\s*:\s*)(?!(?:(?:Bearer|Basic)\s+)?\[REDACTED\])[^\s][^\r\n]*/gi, `$1Authorization$2${MARK}`)

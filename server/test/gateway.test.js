@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { after, test } from 'node:test';
-import { UNKNOWN_CATEGORY_THRESHOLD, callSidecar, createGateway, decide, findingBlocks, sanitizeFindings, validateGatewayConfig } from '../src/gateway.js';
+import { MAX_RESPONSE_BYTES, UNKNOWN_CATEGORY_THRESHOLD, callSidecar, createGateway, decide, findingBlocks, sanitizeFindings, validateGatewayConfig } from '../src/gateway.js';
 import { startSidecar } from '../src/sidecar.js';
 import { CARD_DIGITS, INJECTION, SSN, freeBase } from './helpers.js';
 
@@ -30,6 +30,9 @@ test('decide: empty = allow, alert below threshold = allow with alert, threshold
   assert.deepEqual(decide({ ok: true, findings: [] }, pol), { decision: 'allow', reason: 'no_findings', alert: false, evaluations: [] });
   assert.equal(decide({ ok: true, findings: [f('pii', 'medium')] }, pol).reason, 'alert_only_below_threshold');
   assert.equal(decide({ ok: true, findings: [f('pii', 'high')] }, pol).decision, 'block');
+  const none = { failClosed: true, blockThresholds: { ...T, prompt_injection: 'none' } };
+  assert.equal(decide({ ok: true, findings: [f('prompt_injection', 'high')] }, none).reason, 'alert_only_not_enforcing', 'observe-only must not read as a low score');
+  assert.equal(decide({ ok: true, findings: [f('prompt_injection', 'high'), f('pii', 'medium')] }, none).reason, 'alert_only_below_threshold');
 });
 
 test('decide: sidecar failure follows the fail-closed toggle', () => {
@@ -58,14 +61,35 @@ test('sanitizeFindings treats the sidecar as untrusted: shape, masking, inert te
   }
 });
 
+// Every stub is also closed in after(): a test that fails by timeout never reaches its own finally, and an open
+// listener would keep the test process (and the port) alive.
+const stubs = new Set();
+after(() => Promise.all([...stubs].map((s) => s.close())));
 function stub(handler) {
   return freeBase('gateway').then((port) => new Promise((resolve) => {
-    const server = http.createServer(handler).listen(port, '127.0.0.1', () => resolve({ port, url: `http://127.0.0.1:${port}`, close: () => new Promise((r) => { server.closeAllConnections(); server.close(r); }) }));
+    const server = http.createServer(handler).listen(port, '127.0.0.1', () => {
+      const s = { port, url: `http://127.0.0.1:${port}`, close: () => new Promise((r) => { stubs.delete(s); server.closeAllConnections(); server.close(r); }) };
+      stubs.add(s); resolve(s);
+    });
   }));
 }
+const json = (obj) => (_q, r) => { r.setHeader('content-type', 'application/json'); r.end(JSON.stringify(obj)); };
 const units = [{ role: 'user_prompt', direction: 'request', text: 'x' }];
 
-test('callSidecar maps every failure to an error kind, never throws', async () => {
+test('the reply cap is 256 KB: a huge but VALID JSON reply is refused, one just under the cap is read', async () => {
+  assert.equal(MAX_RESPONSE_BYTES, 256 * 1024, 'docs/safety.md states 256 KB');
+  const pad = (n) => ({ findings: [], pad: 'x'.repeat(n) });
+  const over = await stub(json(pad(MAX_RESPONSE_BYTES + 1000)));
+  const under = await stub(json(pad(MAX_RESPONSE_BYTES - 1000)));
+  try {
+    const a = await callSidecar(over.url, units, 5000);
+    assert.equal(a.ok, false); assert.equal(a.error, 'sidecar_bad_response');
+    const b = await callSidecar(under.url, units, 5000);
+    assert.equal(b.ok, true); assert.deepEqual(b.findings, []);
+  } finally { await over.close(); await under.close(); }
+});
+
+test('callSidecar maps every failure to an error kind, never throws', { timeout: 30000 }, async () => {
   const cases = [
     ['sidecar_http_502', (_q, r) => { r.statusCode = 502; r.end('{}'); }],
     ['sidecar_http_400', (_q, r) => { r.statusCode = 400; r.end('{}'); }],
@@ -78,7 +102,9 @@ test('callSidecar maps every failure to an error kind, never throws', async () =
   for (const [want, handler] of cases) {
     const s = await stub(handler);
     try {
-      const r = await callSidecar(s.url, units, 250);
+      // Generous timeout for the cases that expect a fast answer (a loaded machine must not turn a 502 into a timeout);
+      // only the case that never answers uses a short one.
+      const r = await callSidecar(s.url, units, want === 'sidecar_timeout' ? 250 : 5000);
       assert.equal(r.ok, false); assert.equal(r.error, want);
     } finally { await s.close(); }
   }
@@ -127,7 +153,7 @@ test('fail-closed vs fail-open against a faulted real sidecar', async () => {
   assert.equal(open.stages[0].sidecar.status, 502);
 });
 
-test('a timeout is reported as a timeout and honours the toggle', async () => {
+test('a timeout is reported as a timeout and honours the toggle', { timeout: 15000 }, async () => {
   await boot(); sc.state.reset(); sc.state.fault = { mode: 'timeout', delayMs: 0 };
   const r = await gw.run({ requestText: 'hi', upstreamText: 'x', policy: { ...policy, timeoutMs: 200 } });
   sc.state.reset();

@@ -2,7 +2,7 @@
 
 ## Provenance and what is not claimed
 
-The `/inspect` contract and the gateway behaviour (empty findings allow, a finding at or above the category threshold blocks, a sidecar error follows a fail-closed toggle) are **as understood from the demo environment, UNVERIFIED against product documentation**. The source is the README of a sibling demo sidecar, which states that the contract was reverse-engineered from a gateway binary and a live capture. This app does not check that against anything.
+The `/inspect` contract and the gateway behaviour (empty findings allow, a finding at or above the category threshold blocks, a sidecar error follows a fail-closed toggle) are **as understood from the demo environment, UNVERIFIED against product documentation**. The source is the README of a sibling demo sidecar, which says only that the contract was reverse-engineered (the AI-DEMO2 `privilege/AGENTLESS-CONFIGURATION.md` it points to says from a gateway binary and a live capture). This app does not check that against anything.
 
 It makes **no claim** about the detection quality, defaults, thresholds, severities or licensing of any real product. The thresholds and severities here are demo choices.
 
@@ -28,7 +28,7 @@ A real classifier has its own misses and false positives. How many, and where, i
 | Host check | Missing, malformed or non-loopback `Host` gets 421 (DNS rebinding). | `safety.test.js`, `api.test.js`, `sidecar.test.js` |
 | CSRF | A write with `Sec-Fetch-Site: cross-site` gets 403. An `Origin` header must be the same http loopback origin as the `Host`. Bodies must be `application/json` (415 otherwise). Reads are not guarded. | same |
 | No credentials | `Authorization`, `Proxy-Authorization` and `X-API-Key` are refused with 400. Cookies are not checked and never read. | same |
-| Bounded input | API body 16 KB, custom text 4,000 characters; sidecar body 64 KB, 32 units, 10,000 characters per unit; sidecar replies over 256 KB are rejected by the gateway. | `api.test.js`, `sidecar.test.js`, `gateway.test.js` |
+| Bounded input | API body 16 KB, custom text 4,000 characters; sidecar body 64 KB, 32 units, 10,000 characters per unit; sidecar replies over 256 KB are rejected by the gateway (even when valid JSON). A regex-work bound keeps a 40,000-character run of repeated `a.` or `a-` fast. | `api.test.js`, `sidecar.test.js`, `gateway.test.js` |
 | Capped queue | Runs are serialised, with at most 4 running or waiting; more get 429. The decision log keeps 200 entries. | `api.test.js` |
 | 500s do not leak | An unexpected error returns `{"error":"server_error"}` (API) or `{"error":"inspect_failed"}` with 502 (sidecar). | `api.test.js`, `sidecar.test.js` |
 | In-memory state | Nothing is written to disk; a restart empties the log and resets the configuration. | |
@@ -40,10 +40,11 @@ A real classifier has its own misses and false positives. How many, and where, i
 ## What is not checked
 
 - The last four digits of an SSN or card, and the domain of an email, stay visible in masked values.
-- The gateway and the browser (when the UI exists) share one origin; there is no authentication, because there is nothing to protect: no real tenant, no real data.
+- The gateway and the browser share one origin; there is no authentication, because there is nothing to protect: no real tenant, no real data.
 - The container's embedded sidecar listens on the container's own loopback. It is not published.
-- Masking finds only well-formed values. A card number that fails the Luhn check, or an SSN written as nine digits with no dashes, is not recognised and is not masked.
+- Detection finds only well-formed values: an SSN with dashes or single spaces, a card that passes the Luhn check, a valid IBAN, an email, a US-style phone number. Anything else is not reported as a finding (a card that fails Luhn, nine bare digits, an SSN split across two units, a value written in words). In the logs, any run of nine or more digits is still hidden as a defence in depth, and PII split by a zero-width character is flagged and masked (the hidden-character chip is lost in that one display).
+- Stand-in limits beyond the two scripted ones: zero-width characters and Unicode tag characters are removed (tag characters are decoded) before the injection rules run, so those tricks are caught. Lookalike letters (homoglyphs from another alphabet), other languages, base64 and paraphrases are not.
 
 ## The web UI (AG1)
 
-The UI is built to `web/dist` and served by the main server itself, with `default-src 'self'; script-src 'self'; connect-src 'self'` and no inline script (tests pin this, and that the Host and Origin guards still apply to the static files). It loads no font, script or image from another origin and makes only same-origin JSON calls with no credentials. Every string it shows (your text, the sidecar's messages, scenario text) is rendered as React text, never as HTML, and hidden characters are made visible. The `/inspect` viewer shows display copies with PII masked. The live threshold preview re-implements the gateway's block rule in the browser for teaching only; a run is always decided by the server. This is a demo: no claim is made about real product behaviour.
+The UI is built to `web/dist` and served by the main server itself, with `default-src 'self'; script-src 'self'; connect-src 'self'` and no inline script (it also allows inline styles, `style-src 'self' 'unsafe-inline'`, because the diagram library sets them) (tests pin this, and that the Host and Origin guards still apply to the static files). It loads no font, script or image from another origin and makes only same-origin JSON calls with no credentials. Every string it shows (your text, the sidecar's messages, scenario text) is rendered as React text, never as HTML, and hidden characters are made visible. The `/inspect` viewer shows display copies with PII masked. The live threshold preview re-implements the gateway's block rule in the browser for teaching only; a run is always decided by the server. This is a demo: no claim is made about real product behaviour.

@@ -20,7 +20,7 @@ export const DEFAULT_GATEWAY_CONFIG = Object.freeze({
 export const TIMEOUT_RANGE = [100, 5000];
 // A category the demo does not know blocks at this level (a conservative demo choice).
 export const UNKNOWN_CATEGORY_THRESHOLD = 'high';
-const MAX_RESPONSE_BYTES = 256 * 1024;
+export const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_FINDINGS = 100;
 
 export class Invalid extends Error {}
@@ -91,6 +91,7 @@ export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis
   const started = Date.now();
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  timer.unref?.(); // never the only thing keeping the process alive (a stuck call must not outlive its caller)
   const done = (r) => ({ latencyMs: Date.now() - started, ...r });
   try {
     const res = await fetchImpl(`${base}/inspect`, {
@@ -118,7 +119,8 @@ export function decide(call, policy) {
   }
   const evaluations = call.findings.map((f) => ({ ...f, threshold: policy.blockThresholds[f.category] ?? UNKNOWN_CATEGORY_THRESHOLD, blocks: findingBlocks(f, policy.blockThresholds) }));
   if (evaluations.some((e) => e.blocks)) return { decision: 'block', reason: 'threshold_met', alert: false, evaluations };
-  if (evaluations.length) return { decision: 'allow', reason: 'alert_only_below_threshold', alert: true, evaluations };
+  // Findings that do not block: either below a real threshold, or the category is not enforced at all (threshold none).
+  if (evaluations.length) return { decision: 'allow', reason: evaluations.every((e) => e.threshold === 'none') ? 'alert_only_not_enforcing' : 'alert_only_below_threshold', alert: true, evaluations };
   return { decision: 'allow', reason: 'no_findings', alert: false, evaluations };
 }
 

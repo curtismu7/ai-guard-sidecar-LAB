@@ -105,7 +105,7 @@ test('per-category block thresholds are editable and the comparison is honoured'
   const relaxed = { ...cfg.gateway, blockThresholds: { ...cfg.gateway.blockThresholds, prompt_injection: 'none' } };
   assert.equal((await put('/api/config', { gateway: relaxed })).status, 200);
   const r = (await run('direct-injection')).json.runs[0];
-  assert.equal(r.outcome, 'allow'); assert.equal(r.reason, 'alert_only_below_threshold'); assert.equal(r.expectationMet, false);
+  assert.equal(r.outcome, 'allow'); assert.equal(r.reason, 'alert_only_not_enforcing'); assert.equal(r.expectationMet, false);
   // medium PII (an email) is below the default "high" PII threshold, so it alerts; lowering the threshold blocks it
   await reset();
   const email = { custom: { requestText: 'write to jane@example.com' } };
@@ -142,6 +142,7 @@ test('config validation: bad bodies are 400 and change nothing', async () => {
 });
 
 test('bounded inputs, JSON only, strict body shapes', async () => {
+  assert.equal((await post('/api/run', { custom: { requestText: 'x'.repeat(4000) } })).status, 200, 'exactly 4,000 characters is accepted');
   assert.equal((await post('/api/run', { custom: { requestText: 'x'.repeat(4001) } })).status, 400);
   assert.equal((await post('/api/run', { custom: { requestText: 'x', upstreamText: 'y'.repeat(4001) } })).status, 400);
   assert.equal((await post('/api/run', { custom: { requestText: 'x'.repeat(20000) } })).status, 413);
@@ -175,7 +176,7 @@ test('the run queue is capped: extra concurrent runs get 429', async () => {
   const all = await Promise.all(Array.from({ length: 7 }, () => run('outage-timeout')));
   const codes = all.map((r) => r.status);
   assert.ok(codes.includes(429), codes.join());
-  assert.ok(codes.filter((c) => c === 200).length >= 1);
+  assert.equal(codes.filter((c) => c === 200).length, 4, `exactly MAX_QUEUE (4) accepted: ${codes.join()}`);
   assert.ok(codes.every((c) => c === 200 || c === 429));
   assert.equal((await get('/api/fault')).json.fault.mode, 'none');
   await reset();

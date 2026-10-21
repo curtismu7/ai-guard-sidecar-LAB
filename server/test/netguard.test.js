@@ -39,9 +39,16 @@ test('both servers listen on 127.0.0.1 only', async () => {
   } finally { await s.close(); }
 });
 
-test('startHttpServer refuses a non-loopback bind without the opt-in, and a bad sidecar URL', async () => {
+test('startHttpServer refuses a non-loopback bind without the opt-in, and a bad sidecar URL', { timeout: 15000 }, async () => {
   const base = await freeBase('net', 2);
-  await assert.rejects(startHttpServer({ port: base, host: '0.0.0.0', env: {}, embeddedPort: base + 1 }), /loopback only/);
-  await assert.rejects(startHttpServer({ port: base, env: {}, sidecarUrl: 'http://example.com:6501' }), /loopback/);
-  await assert.rejects(startHttpServer({ port: 8086, embeddedPort: base + 1 }), /outside 6500-6549/);
+  // If a guard is removed the server would START (and a wildcard listener would outlive the test): close it and fail.
+  const mustRefuse = async (opts, pattern) => {
+    let started = null;
+    try { started = await startHttpServer(opts); } catch (e) { assert.match(String(e.message), pattern); return; }
+    await started.close();
+    assert.fail(`startHttpServer should have refused ${JSON.stringify(opts)}`);
+  };
+  await mustRefuse({ port: base, host: '0.0.0.0', env: {}, embeddedPort: base + 1 }, /loopback only/);
+  await mustRefuse({ port: base, env: {}, sidecarUrl: 'http://example.com:6501' }, /loopback/);
+  await mustRefuse({ port: 8086, embeddedPort: base + 1 }, /outside 6500-6549/);
 });

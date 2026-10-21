@@ -102,7 +102,7 @@ Open `http://127.0.0.1:6500/` after `npm run build && npm start`. Top to bottom:
 - **What the stand-in misses**: a paraphrased attack it misses and a harmless sentence it flags, computed live.
 - **Decision log**.
 
-`STAND-IN` and `UNVERIFIED` badges sit beside every panel that shows detection or gateway behaviour; the `DEMO` badge is in the header. Dark and light themes follow your system and can be toggled; there is no purple. The server serves `web/dist` with a same-origin CSP (`default-src 'self'`, no inline script). One API addition for the UI: each inspected stage in a run carries `exchange` (the request body as sent and the answer in contract shape, both display copies with PII masked).
+`STAND-IN` and `UNVERIFIED` badges sit beside every panel that shows detection or gateway behaviour; the `DEMO` badge is in the header. Dark and light themes follow your system and can be toggled; there is no purple. The server serves `web/dist` with a same-origin CSP (`default-src 'self'`, no inline script; inline styles are allowed for the diagram library). One API addition for the UI: each inspected stage in a run carries `exchange` (the request body as sent and the answer in contract shape, both display copies with PII masked).
 
 ## Safety, in one paragraph
 

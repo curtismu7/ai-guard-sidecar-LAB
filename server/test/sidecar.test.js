@@ -186,3 +186,14 @@ test('the sidecar refuses a non-loopback bind and an out-of-range port', async (
   await refused({ port: 8086 }, /outside 6500-6549/);
   assert.equal(sc.url.startsWith('http://127.0.0.1:'), true);
 });
+
+test('the documented limits are the real ones (docs/safety.md and the README state these numbers)', async () => {
+  const { MAX_QUEUE, CUSTOM_MAX_CHARS } = await import('../src/service.js');
+  const { MAX_DECISIONS } = await import('../src/decisions.js');
+  assert.equal(LIMITS.bodyBytes, 64 * 1024);
+  assert.equal(LIMITS.units, 32);
+  assert.equal(LIMITS.textChars, 10000);
+  assert.equal(MAX_QUEUE, 4);
+  assert.equal(CUSTOM_MAX_CHARS, 4000);
+  assert.equal(MAX_DECISIONS, 200);
+});

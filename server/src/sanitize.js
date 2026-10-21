@@ -9,6 +9,16 @@ export const INVISIBLE = /[­͏؜ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯⠀ㅤ�
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u;
 const UNSAFE_G = new RegExp(`${INVISIBLE.source}|${CONTROL.source}`, 'gu');
 
+const INVISIBLE_G = new RegExp(INVISIBLE.source, 'gu');
+// Text as a classifier should see it: invisible characters removed, and any Unicode tag characters ("ASCII smuggling")
+// decoded to the plain text they spell, appended so a hidden sentence is read like a visible one.
+export function normalizeForDetection(value) {
+  const s = String(value ?? '');
+  if (!INVISIBLE.test(s)) return s;
+  const smuggled = [...s].filter((c) => { const p = c.codePointAt(0); return p >= 0xE0020 && p <= 0xE007E; }).map((c) => String.fromCharCode(c.codePointAt(0) - 0xE0000)).join('');
+  return s.replace(INVISIBLE_G, '') + (smuggled ? `\n${smuggled}` : '');
+}
+
 export const hasInvisible = (s) => INVISIBLE.test(String(s));
 
 export function revealText(value, max = 2000) {

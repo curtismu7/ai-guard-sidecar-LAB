@@ -24,7 +24,13 @@ export async function freeBase(slice, count = 1) {
     for (let p = start; p < start + count && ok; p += 1) ok = await isFree(p);
     if (ok) { cursor[slice] = start + count; return start; }
   }
-  throw new Error(`no ${count} free ports in ${first}-${last}`);
+  // Own slice busy (another test run overlaps this one): any free run inside the shared test range 6530-6549.
+  for (let start = 6530; start + count - 1 <= 6549; start += 1) {
+    let ok = true;
+    for (let p = start; p < start + count && ok; p += 1) ok = await isFree(p);
+    if (ok) return start;
+  }
+  throw new Error(`no ${count} free ports in 6530-6549`);
 }
 
 // Like fetch, but lets a test set the Host header. Resolves { status, headers, json, raw }.

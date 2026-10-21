@@ -48,6 +48,7 @@ test('compose gives the container no host access: no mounts, docker socket, host
   assert.doesNotMatch(code, /^\s*volumes:/m);
   assert.doesNotMatch(code, /docker\.sock/);
   assert.doesNotMatch(code, /network_mode|privileged|pid:\s*host/);
+  assert.match(code, /no-new-privileges:true/);
   assert.match(code, /read_only:\s*true/);
   assert.match(code, /cap_drop:\s*\[ALL\]/);
 });

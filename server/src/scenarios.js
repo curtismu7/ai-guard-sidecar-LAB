@@ -33,7 +33,7 @@ export const SCENARIOS = [
   { id: 'a2a-per-key', title: 'A2A message, per-key guardrail', teaches: 'The same message to the same remote agent: the enforcing key is blocked, the observe-only key is allowed with an alert.',
     runs: [
       { label: 'Payments agent key (enforcing)', caller: 'payments-agent', requestRole: 'a2a_message', requestText: A2A_MESSAGE, upstreamText: 'unused', expect: { outcome: 'block', blockedAt: 'request', reason: 'threshold_met' } },
-      { label: 'Research agent key (observe-only)', caller: 'research-agent', requestRole: 'a2a_message', requestText: A2A_MESSAGE, upstreamText: 'Remote agent reply.', expect: { outcome: 'allow', blockedAt: null, reason: 'alert_only_below_threshold' } },
+      { label: 'Research agent key (observe-only)', caller: 'research-agent', requestRole: 'a2a_message', requestText: A2A_MESSAGE, upstreamText: 'Remote agent reply.', expect: { outcome: 'allow', blockedAt: null, reason: 'alert_only_not_enforcing' } },
     ] },
   { id: 'outage-502', title: 'Sidecar outage (502), both modes', teaches: 'The sidecar errors. Fail closed blocks every request while the sidecar is down, even harmless ones; fail open lets even an attack through.',
     runs: [

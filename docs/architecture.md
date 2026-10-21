@@ -40,10 +40,10 @@ The point is to show the wire. The embedded sidecar is a separate Express server
 | 6500 | main server (mock gateway and API) |
 | 6501 | standalone sidecar |
 | 6502 | embedded sidecar; 6503-6509 are reserved for stubs |
-| 6510 | Vite dev server (a later step) |
-| 6520 | end-to-end runs (a later step) |
+| 6510 | Vite dev server (`npm run dev`) |
+| 6520 | end-to-end runs (`npm run e2e`) |
 | 6530-6549 | tests, through a free-port helper; each test file owns a slice |
 
 ## Decision record
 
-Each run adds one entry: source (scenario or custom), caller, the policy in force (fail closed, timeout, thresholds), the injected fault if any, and three stages (request, upstream, response). A stage carries the masked unit text, the sidecar call result (status, latency, error kind) and each finding with its threshold and whether it blocks. The outcome carries `blockedAt` (`request`, `response` or null) and a `reason`: `no_findings`, `alert_only_below_threshold`, `threshold_met`, `sidecar_error_fail_closed` or `sidecar_error_fail_open`.
+Each run adds one entry: source (scenario or custom), caller, the policy in force (fail closed, timeout, thresholds), the injected fault if any, and three stages (request, upstream, response). A stage carries the masked unit text, the sidecar call result (status, latency, error kind) and each finding with its threshold and whether it blocks. The outcome carries `blockedAt` (`request`, `response` or null) and a `reason`: `no_findings`, `alert_only_below_threshold`, `alert_only_not_enforcing` (the category is set to never block), `threshold_met`, `sidecar_error_fail_closed` or `sidecar_error_fail_open`.

@@ -46,3 +46,21 @@ test('every port in the docs is inside 6500-6549 (apart from the named real-side
     }
   }
 });
+
+test('the size limits the docs state are the ones in the code', async () => {
+  const { LIMITS } = await import('../server/src/sidecar.js');
+  const { MAX_QUEUE, CUSTOM_MAX_CHARS } = await import('../server/src/service.js');
+  const { MAX_DECISIONS } = await import('../server/src/decisions.js');
+  const { MAX_RESPONSE_BYTES } = await import('../server/src/gateway.js');
+  const row = read('docs/safety.md').split('\n').find((l) => l.startsWith('| Bounded input'));
+  assert.ok(row.includes(`custom text ${CUSTOM_MAX_CHARS.toLocaleString('en-US')} characters`), row);
+  assert.ok(row.includes(`sidecar body ${LIMITS.bodyBytes / 1024} KB, ${LIMITS.units} units, ${LIMITS.textChars.toLocaleString('en-US')} characters per unit`), row);
+  assert.ok(row.includes(`over ${MAX_RESPONSE_BYTES / 1024} KB`), row);
+  const queue = read('docs/safety.md').split('\n').find((l) => l.startsWith('| Capped queue'));
+  assert.ok(queue.includes(`at most ${MAX_QUEUE} running`) && queue.includes(`keeps ${MAX_DECISIONS} entries`), queue);
+  assert.ok(row.includes('API body 16 KB'));
+});
+
+test('the docs do not describe finished work as a later step', () => {
+  for (const d of docs) assert.doesNotMatch(read(d), /a later step|when the UI exists|CI still scans/, d);
+});

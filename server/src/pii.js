@@ -2,6 +2,8 @@
 // maskPii() is used everywhere a text leaves the detector, whether or not the PII rail is switched on: the decision
 // log and API responses never carry a full SSN, card, IBAN, email or phone number.
 
+import { INVISIBLE } from './sanitize.js';
+
 export const luhn = (digits) => {
   let sum = 0; let alt = false;
   for (let i = digits.length - 1; i >= 0; i -= 1) {
@@ -25,7 +27,7 @@ export function ibanValid(raw) {
 }
 
 const ssnValid = (s) => {
-  const [a, g, n] = s.split('-');
+  const [a, g, n] = s.split(/[- ]/);
   return a !== '000' && a !== '666' && a[0] !== '9' && g !== '00' && n !== '0000';
 };
 
@@ -33,9 +35,9 @@ const ssnValid = (s) => {
 const KINDS = [
   { kind: 'card', severity: 'high', re: /(?<![\w-])(?:\d[ -]?){12,18}\d(?![\w-])/g, ok: (m) => { const d = m.replace(/[ -]/g, ''); return d.length >= 13 && d.length <= 19 && luhn(d); },
     mask: (m) => { const d = m.replace(/[ -]/g, ''); return `**** **** **** ${d.slice(-4)}`; } },
-  { kind: 'ssn', severity: 'high', re: /(?<![\w-])\d{3}-\d{2}-\d{4}(?![\w-])/g, ok: ssnValid, mask: (m) => `***-**-${m.slice(-4)}` },
+  { kind: 'ssn', severity: 'high', re: /(?<![\w-])\d{3}([- ])\d{2}\1\d{4}(?![\w-])/g, ok: ssnValid, mask: (m) => `***-**-${m.slice(-4)}` },
   { kind: 'iban', severity: 'high', re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b/g, ok: ibanValid, mask: (m) => { const s = m.replace(/\s+/g, ''); return `${s.slice(0, 4)}****${s.slice(-2)}`; } },
-  { kind: 'email', severity: 'medium', re: /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g, ok: () => true, mask: (m) => { const [l, d] = m.split('@'); return `${l[0]}***@${d}`; } },
+  { kind: 'email', severity: 'medium', re: /\b[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}\b/g, ok: () => true, mask: (m) => { const [l, d] = m.split('@'); return `${l[0]}***@${d}`; } },
   { kind: 'phone', severity: 'medium', re: /(?<![\w-])(?:\+?1[ -.]?)?\(?\d{3}\)?[ -.]?\d{3}[ -.]?\d{4}(?![\w-])/g, ok: () => true, mask: (m) => `***-***-${m.replace(/\D/g, '').slice(-4)}` },
 ];
 
@@ -56,7 +58,19 @@ export function findPii(text) {
 
 export function maskPii(text) {
   const s = String(text ?? '');
+  // Find values on a copy with invisible characters removed (so "123-<ZWSP>45-6789" is found), then replace the
+  // matching range of the ORIGINAL text, keeping every invisible character outside a value for revealText to show.
+  const keep = []; let stripped = ''; let at0 = 0;
+  for (const ch of s) {
+    if (!INVISIBLE.test(ch)) { for (let k = 0; k < ch.length; k += 1) keep.push(at0 + k); stripped += ch; }
+    at0 += ch.length;
+  }
   let out = ''; let at = 0;
-  for (const p of findPii(s)) { out += s.slice(at, p.start) + p.mask; at = p.end; }
-  return out + s.slice(at);
+  for (const p of findPii(stripped)) {
+    const start = keep[p.start]; const end = keep[p.end - 1] + 1;
+    out += s.slice(at, start) + p.mask; at = end;
+  }
+  // Defence in depth for the logs: a run of nine or more digits that no rule recognised (a card that fails the Luhn
+  // check, an SSN written without dashes) is still hidden, though it is not reported as a finding.
+  return (out + s.slice(at)).replace(/\d{9,}/g, (d) => `${'*'.repeat(d.length - 4)}${d.slice(-4)}`);
 }
