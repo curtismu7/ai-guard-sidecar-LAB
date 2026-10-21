@@ -1,4 +1,4 @@
-# Stage 1 builds web/dist; stage 2 is the runtime: API server + the built UI. The image can be built later with OrbStack:
+# Stage 1 builds web/dist; stage 2 is the runtime: API server + the built UI. Build and run with OrbStack (not Docker Desktop):
 #   HOST_PORT=6500 docker compose up --build -d   ->  http://127.0.0.1:6500/
 FROM node:22-alpine AS build
 WORKDIR /app
@@ -24,4 +24,5 @@ EXPOSE 6500
 # The embedded stand-in sidecar still binds 127.0.0.1 inside the container; it is never published.
 # The compose file publishes 6500 on 127.0.0.1 only; do not publish it more widely.
 ENV AI_GUARD_BIND=0.0.0.0
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:6500/api/health').then(r=>r.json()).then(j=>process.exit(j.state==='ready'?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "server/src/index.js"]

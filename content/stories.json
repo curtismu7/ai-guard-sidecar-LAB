@@ -1,0 +1,6 @@
+[
+  { "id": "S01", "title": "The gateway sends text", "say": "The text units of an agent or LLM request, and later of the response, go to the sidecar's /inspect." },
+  { "id": "S02", "title": "The sidecar answers with findings", "say": "Each finding has a category, a severity and the index of the unit it is about. An empty list means allow." },
+  { "id": "S03", "title": "The gateway compares", "say": "A finding at or above that category's block threshold means block. Otherwise it allows, maybe with an alert." },
+  { "id": "S04", "title": "If the sidecar fails", "say": "A Fail Closed toggle decides: block everything, or let everything through unchecked." }
+]

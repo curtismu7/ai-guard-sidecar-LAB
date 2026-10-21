@@ -59,8 +59,9 @@ test('the Dockerfile runs as non-root and exposes only 6500', () => {
   assert.doesNotMatch(dockerfile, /EXPOSE (?!6500$)/m);
 });
 
-test('the healthcheck uses /api/health', () => {
+test('the healthcheck uses /api/health, in compose and in the Dockerfile', () => {
   assert.match(code, /\/api\/health/);
+  assert.match(dockerfile, /^HEALTHCHECK .*\/api\/health/m);
 });
 
 test('the pre-commit hook runs gitleaks', () => {

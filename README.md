@@ -11,7 +11,7 @@ A small, offline demo of how an **external guardrail sidecar** plugs into an age
 
 ## Status
 
-Steps AG0 (server core) and AG1 (web UI) are built: the standalone sidecar, stand-in detectors and PII rails, calibration, the mock gateway with the fault injector, scenarios, the decision log, the API, doctor, Docker files, and a React UI served by the main server. See "The web UI" below.
+Steps AG0 (server core), AG1 (web UI), AG2 (fix pass) and AG3 (packaging) are built: the standalone sidecar, stand-in detectors and PII rails, calibration, the mock gateway with the fault injector, scenarios, the decision log, the API, doctor, Docker files, a Learning Hub content pack, a shelf entry, and a React UI served by the main server. See "The web UI" below.
 
 ## Run it
 
@@ -110,14 +110,28 @@ Loopback bind, strict Host check, an Origin and `Sec-Fetch-Site` check on every 
 
 ## Docker
 
-The image can be built later with OrbStack (not Docker Desktop):
+Built and run on OrbStack (not Docker Desktop):
 
 ```sh
-HOST_PORT=6500 docker compose up --build -d     # then http://127.0.0.1:6500/api/health
+HOST_PORT=6500 docker compose up --build -d     # then http://127.0.0.1:6500/ and /api/health
+docker compose down --rmi local                 # stop and remove the image
 ```
 
-`docker-compose.yml` publishes `127.0.0.1:6500` only; a test pins that. The embedded sidecar stays inside the container.
+The image is a two-stage build (the web UI is built in stage 1 and `web/dist` is shipped), runs as the non-root `node` user and has a healthcheck on `/api/health`. `docker-compose.yml` publishes **only the app port**, `127.0.0.1:6500`; a test pins that, and pins that there are no volumes, no docker socket and no host network. The standalone sidecar (6501) is **not** published and is not run in the image: the embedded sidecar the gateway calls stays on the container's own loopback. To curl `/inspect` use the host-run `npm run sidecar`.
+
+## Demo shelf
+
+[docs/shelf-entry.json](docs/shelf-entry.json) is a registry entry for the SE shelf (`demo-shelf`): catalog id D12 (kind Demo), url `http://localhost:6500`, health `/api/health` (`demo-health/1`). Do not edit the shelf repo: copy the entry into the shelf's git-ignored `.data/demos.local.json` and set `composeFile` to this checkout's absolute path. The shelf's registry rules are copied into `scripts/lib/shelf-registry-rules.mjs` (not imported) and `npm test` validates the entry against them. The entry was also run once, read-only, through the shelf's real `validateDemos`. It was not loaded into a running shelf.
+
+## Learning Hub content pack
+
+`content-pack.json` (format `demo-content-pack/1`) is generated from `content/terms.json` (11 glossary terms, including the UNVERIFIED and STAND-IN statements) and `content/stories.json` (the four story-strip steps, same text as the UI; a test checks that), plus four cards. The schema is a copy, in `docs/content-pack.schema.json`, of the one the Learning Hub uses. `sources` is empty: no public documentation URL was verified. The pack was also run once through the Learning Hub's own `validate-pack`.
+
+```sh
+npm run content-pack      # regenerate and validate with ajv
+node scripts/validate-content-pack.mjs [file]
+```
 
 ## Layout
 
-`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `web/` the React UI (`web/src`, vitest tests), `scripts/e2e.mjs` the browser run, `scripts/` the doctor and the doc and compose tests.
+`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `web/` the React UI (`web/src`, vitest tests), `scripts/e2e.mjs` the browser run, `scripts/` the doctor, the build and validate scripts for the content pack, and the doc, compose, content-pack and shelf-entry tests (`scripts/lib/` holds the copied shelf rules), `content/` the pack's source text.
