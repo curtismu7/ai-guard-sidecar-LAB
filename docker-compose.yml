@@ -1,0 +1,22 @@
+# OrbStack:  HOST_PORT=6500 docker compose up --build -d   ->  http://127.0.0.1:6500/api/health
+# The server binds 0.0.0.0 INSIDE the container (AI_GUARD_BIND is the opt-in), but the port is published on loopback only.
+# The embedded sidecar listens on the container's own loopback and is not published. No host mounts, no docker socket,
+# no host network. Do not change the 127.0.0.1 below.
+name: ai-guard-sidecar
+
+services:
+  ai-guard-sidecar:
+    build: .
+    ports:
+      - "127.0.0.1:${HOST_PORT:-6500}:6500"
+    environment:
+      AI_GUARD_PORT: "6500"
+      AI_GUARD_BIND: 0.0.0.0
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:6500/api/health').then(r=>r.json()).then(j=>process.exit(j.state==='ready'?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
