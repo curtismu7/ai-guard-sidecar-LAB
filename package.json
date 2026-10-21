@@ -6,7 +6,8 @@
   "description": "Teaches how an external guardrail sidecar plugs into an agent gateway: a deterministic stand-in detector, a mock gateway, a fault injector and a decision log. Nothing real is touched.",
   "license": "MIT",
   "workspaces": [
-    "server"
+    "server",
+    "web"
   ],
   "engines": {
     "node": ">=20"
@@ -14,8 +15,14 @@
   "scripts": {
     "start": "npm start -w server",
     "sidecar": "npm run sidecar -w server",
-    "test": "npm test -w server && node --test scripts/compose.test.mjs scripts/docs.test.mjs",
+    "test": "npm test -w server && npm test -w web && node --test scripts/compose.test.mjs scripts/docs.test.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
   }
 }

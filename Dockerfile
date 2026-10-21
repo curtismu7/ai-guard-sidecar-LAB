@@ -1,12 +1,23 @@
-# Node 22 on Alpine, API server only (the web UI arrives in a later step). The image can be built later with OrbStack:
-#   HOST_PORT=6500 docker compose up --build -d   ->  http://127.0.0.1:6500/api/health
+# Stage 1 builds web/dist; stage 2 is the runtime: API server + the built UI. The image can be built later with OrbStack:
+#   HOST_PORT=6500 docker compose up --build -d   ->  http://127.0.0.1:6500/
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY web/package.json web/
+COPY server/package.json server/
+RUN npm ci --ignore-scripts
+COPY web web
+RUN npm run build -w web
+
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production AI_GUARD_PORT=6500
 COPY package.json package-lock.json ./
+COPY web/package.json web/
 COPY server/package.json server/
 RUN npm ci --omit=dev -w server --ignore-scripts && npm cache clean --force
 COPY server/src server/src
+COPY --from=build /app/web/dist web/dist
 USER node
 EXPOSE 6500
 # Inside the container the main server must listen on all interfaces, so AI_GUARD_BIND is set here on purpose.

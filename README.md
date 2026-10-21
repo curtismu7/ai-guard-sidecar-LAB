@@ -11,7 +11,7 @@ A small, offline demo of how an **external guardrail sidecar** plugs into an age
 
 ## Status
 
-Step AG0 (server core) is built: the standalone sidecar, stand-in detectors and PII rails, calibration, the mock gateway with the fault injector, scenarios, the decision log, the API, doctor, Docker files and tests. The web UI (diagram, controls) is a later step; today the API and `curl` are the interface.
+Steps AG0 (server core) and AG1 (web UI) are built: the standalone sidecar, stand-in detectors and PII rails, calibration, the mock gateway with the fault injector, scenarios, the decision log, the API, doctor, Docker files, and a React UI served by the main server. See "The web UI" below.
 
 ## Run it
 
@@ -21,6 +21,9 @@ Needs Node 20 or newer. Ports are all in 6500-6549.
 npm install
 npm test                 # unit, API, safety and doc tests
 npm run doctor           # preflight: exits 0 when the setup is sound and the ports are free
+npm run build            # build the web UI once (web/dist); the server then serves it at /
+npm run dev              # Vite dev server on http://127.0.0.1:6510 (proxies /api to 6500; run npm start too)
+npm run e2e              # real headless Chromium run against the built UI (ports 6520/6521)
 npm start                # mock gateway + API on http://127.0.0.1:6500 (and an embedded sidecar on 6502)
 npm run sidecar          # the sidecar alone, as its own process, on http://127.0.0.1:6501
 ```
@@ -28,6 +31,8 @@ npm run sidecar          # the sidecar alone, as its own process, on http://127.
 | Port | What |
 | --- | --- |
 | 6500 | main server: mock gateway and API |
+| 6510 | Vite dev server |
+| 6520 | e2e server (embedded sidecar on 6521) |
 | 6501 | standalone sidecar (`npm run sidecar`) |
 | 6502 | embedded sidecar that the main server's gateway calls over loopback HTTP |
 | 6530-6549 | tests (free-port helper) |
@@ -83,6 +88,22 @@ Scenarios: `benign`, `direct-injection`, `paraphrased-injection` (the stand-in m
 
 Defaults (demo choices): `prompt_injection` blocks at `medium`, `pii` at `high` (so an SSN or card blocks and an email only alerts), `jailbreak` is alert-only, detector threshold 0.9, benign labels `benign, label_0, safe`, fail closed on, timeout 1000 ms.
 
+## The web UI
+
+Open `http://127.0.0.1:6500/` after `npm run build && npm start`. Top to bottom:
+
+- **Story strip**: the four steps of the contract, with the UNVERIFIED provenance line.
+- **Pick something to try**: the ten scenarios, or your own prompt, optional upstream reply and calling agent key. Your text is only rendered as text; hidden characters show as `[U+XXXX]` chips.
+- **Diagram** (React Flow): client, gateway, sidecar, upstream and decision boxes you can drag. Simulate makes a real run and plays its hops back (speed 0.5x to 4x); Reset restores defaults and clears the run. Keyboard users get the same story in the caption under the diagram.
+- **The /inspect exchange**: the exact JSON the gateway sends and the answer it gets, per direction, with PII masked.
+- **Findings and the decision**: category, severity, stand-in score, the block threshold and the result.
+- **Block thresholds**: a slider per category. The decision for the last run flips live as you move it (the same rule as the server, pinned by tests), and the value is saved to the gateway. A calling agent key brings its own thresholds, which the sliders do not change.
+- **When the sidecar fails**: the Fail Closed switch, the fault injector (none, 502, timeout, slow) and a side-by-side fail closed vs fail open comparison.
+- **What the stand-in misses**: a paraphrased attack it misses and a harmless sentence it flags, computed live.
+- **Decision log**.
+
+`STAND-IN` and `UNVERIFIED` badges sit beside every panel that shows detection or gateway behaviour; the `DEMO` badge is in the header. Dark and light themes follow your system and can be toggled; there is no purple. The server serves `web/dist` with a same-origin CSP (`default-src 'self'`, no inline script). One API addition for the UI: each inspected stage in a run carries `exchange` (the request body as sent and the answer in contract shape, both display copies with PII masked).
+
 ## Safety, in one paragraph
 
 Loopback bind, strict Host check, an Origin and `Sec-Fetch-Site` check on every write, JSON-only bodies, bounded sizes, no credentials accepted, a capped run queue (429), 500s that say nothing about the cause, in-memory state only, hidden characters made visible, secret-looking strings redacted, and detected PII values masked in the decision log and in every API response. Details and the limits of those checks: [docs/safety.md](docs/safety.md). How the pieces fit: [docs/architecture.md](docs/architecture.md).
@@ -99,4 +120,4 @@ HOST_PORT=6500 docker compose up --build -d     # then http://127.0.0.1:6500/api
 
 ## Layout
 
-`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `scripts/` the doctor and the doc and compose tests.
+`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `web/` the React UI (`web/src`, vitest tests), `scripts/e2e.mjs` the browser run, `scripts/` the doctor and the doc and compose tests.

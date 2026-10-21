@@ -43,3 +43,7 @@ A real classifier has its own misses and false positives. How many, and where, i
 - The gateway and the browser (when the UI exists) share one origin; there is no authentication, because there is nothing to protect: no real tenant, no real data.
 - The container's embedded sidecar listens on the container's own loopback. It is not published.
 - Masking finds only well-formed values. A card number that fails the Luhn check, or an SSN written as nine digits with no dashes, is not recognised and is not masked.
+
+## The web UI (AG1)
+
+The UI is built to `web/dist` and served by the main server itself, with `default-src 'self'; script-src 'self'; connect-src 'self'` and no inline script (tests pin this, and that the Host and Origin guards still apply to the static files). It loads no font, script or image from another origin and makes only same-origin JSON calls with no credentials. Every string it shows (your text, the sidecar's messages, scenario text) is rendered as React text, never as HTML, and hidden characters are made visible. The `/inspect` viewer shows display copies with PII masked. The live threshold preview re-implements the gateway's block rule in the browser for teaching only; a run is always decided by the server. This is a demo: no claim is made about real product behaviour.
