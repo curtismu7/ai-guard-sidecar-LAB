@@ -178,7 +178,11 @@ test('the sidecar log never contains prompt text', async () => {
 });
 
 test('the sidecar refuses a non-loopback bind and an out-of-range port', async () => {
-  await assert.rejects(startSidecar({ port: await freeBase('sidecar'), host: '0.0.0.0' }), /loopback only/);
-  await assert.rejects(startSidecar({ port: 8086 }), /outside 6500-6549/);
+  const refused = async (opts, re) => {
+    const r = await startSidecar(opts).then((s) => { s.close(); return null; }, (e) => e); // close a wrongly started one so the run cannot hang
+    assert.ok(r && re.test(r.message), `expected a refusal matching ${re}`);
+  };
+  await refused({ port: await freeBase('sidecar'), host: '0.0.0.0' }, /loopback only/);
+  await refused({ port: 8086 }, /outside 6500-6549/);
   assert.equal(sc.url.startsWith('http://127.0.0.1:'), true);
 });
