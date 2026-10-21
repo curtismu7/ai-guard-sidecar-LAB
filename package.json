@@ -1,0 +1,21 @@
+{
+  "name": "ai-guard-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Teaches how an external guardrail sidecar plugs into an agent gateway: a deterministic stand-in detector, a mock gateway, a fault injector and a decision log. Nothing real is touched.",
+  "license": "MIT",
+  "workspaces": [
+    "server"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "npm start -w server",
+    "sidecar": "npm run sidecar -w server",
+    "test": "npm test -w server && node --test scripts/compose.test.mjs scripts/docs.test.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
+  }
+}
