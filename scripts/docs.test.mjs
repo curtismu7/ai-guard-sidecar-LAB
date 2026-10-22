@@ -64,3 +64,10 @@ test('the size limits the docs state are the ones in the code', async () => {
 test('the docs do not describe finished work as a later step', () => {
   for (const d of docs) assert.doesNotMatch(read(d), /a later step|when the UI exists|CI still scans/, d);
 });
+
+test('CLAUDE.md and the talk track exist and name the app port', () => {
+  for (const f of ['CLAUDE.md', 'docs/talk-track.md']) {
+    assert.ok(fs.existsSync(path.join(root, f)), `${f} is missing`);
+    assert.match(read(f), /6500/, `${f} does not mention port 6500`);
+  }
+});
