@@ -7,7 +7,7 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "sidecar": "node src/sidecar-main.js",
-    "test": "node --test --test-timeout=60000 test/*.test.js"
+    "test": "node --test --test-concurrency=1 --test-timeout=60000 test/*.test.js"
   },
   "dependencies": {
     "express": "^4.22.2"

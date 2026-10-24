@@ -8,7 +8,8 @@
 import { revealText } from './sanitize.js';
 import { severityRank } from './detectors.js';
 import { assertSidecarUrl } from './safety.js';
-import { safeSnippet } from './sidecar.js';
+import { SIDECAR_WORKSPACE_HEADER, safeSnippet } from './sidecar.js';
+import { WORKSPACE_RE } from './workspaces.js';
 
 export const THRESHOLD_LEVELS = ['low', 'medium', 'high', 'none'];
 export const CATEGORIES = ['prompt_injection', 'jailbreak', 'pii'];
@@ -87,7 +88,7 @@ async function readBounded(res) {
 // The exact /inspect request body the gateway sends (also used by the UI viewer, with the text made safe first).
 export const inspectBody = (units) => ({ tenant: 'demo-tenant', user: 'demo-user', app_name: 'mock-gateway', units });
 
-export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis.fetch) {
+export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis.fetch, extraHeaders = {}) {
   const started = Date.now();
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
@@ -96,7 +97,7 @@ export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis
   try {
     const res = await fetchImpl(`${base}/inspect`, {
       method: 'POST', redirect: 'error', signal: ctl.signal,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...extraHeaders },
       body: JSON.stringify(inspectBody(units)),
     });
     if (res.status !== 200) { await res.body?.cancel?.().catch(() => {}); return done({ ok: false, status: res.status, error: `sidecar_http_${res.status}` }); }
@@ -124,11 +125,15 @@ export function decide(call, policy) {
   return { decision: 'allow', reason: 'no_findings', alert: false, evaluations };
 }
 
-export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch } = {}) {
+// workspace (MODE=se-mock only): every call to the sidecar names the visitor's workspace, so the embedded sidecar keeps
+// that visitor's fault and config separate. Omitted in the local demo, where there is one sidecar state.
+export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch, workspace } = {}) {
   const base = assertSidecarUrl(sidecarUrl);
+  if (workspace !== undefined && !WORKSPACE_RE.test(workspace)) throw new Error('invalid workspace id');
+  const wsHeaders = workspace === undefined ? {} : { [SIDECAR_WORKSPACE_HEADER]: workspace };
 
   async function inspectStage(stage, unit, policy) {
-    const call = await callSidecar(base, [unit], policy.timeoutMs, fetchImpl);
+    const call = await callSidecar(base, [unit], policy.timeoutMs, fetchImpl, wsHeaders);
     const d = decide(call, policy);
     // What the teaching viewer shows: the request body as sent, and the answer in contract shape. Both are display
     // copies: text is masked and made inert, the sidecar answer was sanitised by callSidecar.
@@ -167,7 +172,7 @@ export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch } = {})
   async function admin(method, path, body) {
     const res = await fetchImpl(`${base}${path}`, {
       method, redirect: 'error', signal: AbortSignal.timeout(2000),
-      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...wsHeaders },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await readBounded(res);

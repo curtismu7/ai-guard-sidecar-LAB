@@ -123,6 +123,13 @@ The image is a two-stage build (the web UI is built in stage 1 and `web/dist` is
 
 [docs/shelf-entry.json](docs/shelf-entry.json) is a registry entry for the SE shelf (`demo-shelf`): catalog id D12 (kind Demo), url `http://localhost:6500`, health `/api/health` (`demo-health/1`). Do not edit the shelf repo: copy the entry into the shelf's git-ignored `.data/demos.local.json` and set `composeFile` to this checkout's absolute path. The shelf's registry rules are copied into `scripts/lib/shelf-registry-rules.mjs` (not imported) and `npm test` validates the entry against them. The entry was also run once, read-only, through the shelf's real `validateDemos`. It was not loaded into a running shelf.
 
+## Mock-only SE build (MODE=se-mock)
+
+The same image with `MODE=se-mock` is the hosted build for the SE cluster: live features are refused at startup, every
+visitor gets a workspace (`X-Workspace-Id`), and the UI shows a "hosted and simulated" banner. Manifests and the deploy
+script are in `k8s/`. Nothing is deployed from this repo; the first deploy needs the owner's approval. See
+[docs/k8s.md](docs/k8s.md) for what is refused, the state inventory and the residual risks.
+
 ## Learning Hub content pack
 
 `content-pack.json` (format `demo-content-pack/1`) is generated from `content/terms.json` (11 glossary terms, including the UNVERIFIED and STAND-IN statements) and `content/stories.json` (the four story-strip steps, same text as the UI; a test checks that), plus four cards. The schema is a copy, in `docs/content-pack.schema.json`, of the one the Learning Hub uses. `sources` is empty: no public documentation URL was verified. The pack was also run once through the Learning Hub's own `validate-pack`.

@@ -63,12 +63,15 @@ export function hostGuard(req, res, next) {
 //  - an Origin header must be an http loopback origin identical to the Host the request was sent to;
 //  - a request with a body must be application/json.
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-export function originGuard(req, res, next) {
-  if (READ_METHODS.has(req.method)) return next();
-  const refuse = (status, error, message) => res.status(status).json({ error, message });
-  if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return refuse(403, 'cross_site_refused', 'cross-site requests are refused');
-  const origin = req.headers.origin;
-  if (origin !== undefined) {
+// `publicOrigin` (se-mock only, optional) is the one extra origin allowed: the hosted UI's own https origin, which the
+// ingress passes through while it rewrites Host to loopback. Nothing else is relaxed.
+export function makeOriginGuard({ publicOrigin = null } = {}) {
+  return function originGuard(req, res, next) {
+    if (READ_METHODS.has(req.method)) return next();
+    const refuse = (status, error, message) => res.status(status).json({ error, message });
+    if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return refuse(403, 'cross_site_refused', 'cross-site requests are refused');
+    const origin = req.headers.origin;
+    if (origin !== undefined && !(publicOrigin && origin === publicOrigin)) {
     let u = null;
     try { u = new URL(origin); } catch { /* refused below */ }
     const host = parseHost(req.headers.host);
@@ -79,7 +82,9 @@ export function originGuard(req, res, next) {
   const hasBody = Number(req.headers['content-length'] || 0) > 0 || req.headers['transfer-encoding'] !== undefined;
   if (hasBody && !/^application\/json\s*(;|$)/i.test(req.headers['content-type'] || '')) return refuse(415, 'unsupported_media_type', 'a request body must be application/json');
   return next();
+  };
 }
+export const originGuard = makeOriginGuard();
 
 // No credential is ever accepted or used. A request that carries one is refused, not ignored.
 // (Cookies are not checked: they are scoped by host not port. They are never read.)

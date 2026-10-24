@@ -14,8 +14,8 @@ export { Invalid };
 export class QueueFull extends Error {}
 export class SidecarDown extends Error {}
 
-export function createService({ sidecarUrl, fetchImpl, decisions = createDecisionLog() } = {}) {
-  const gateway = createGateway({ sidecarUrl, fetchImpl });
+export function createService({ sidecarUrl, fetchImpl, decisions = createDecisionLog(), workspace } = {}) {
+  const gateway = createGateway({ sidecarUrl, fetchImpl, workspace });
   let config = structuredClone(DEFAULT_GATEWAY_CONFIG);
 
   // One run at a time (faults and config are shared state); at most MAX_QUEUE waiting or running.

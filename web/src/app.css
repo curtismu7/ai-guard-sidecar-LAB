@@ -133,3 +133,6 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 .empty { color: var(--muted); font-style: italic; }
 .result .tabs { margin: 8px 0; }
 .foot { color: var(--muted); font-size: .8rem; margin: 8px 0 24px; max-width: 100ch; }
+
+/* Mock-only SE build: the hosted and simulated banner, above the header on every view. */
+.hosted-banner { margin: 0; padding: 8px 16px; font-weight: 600; text-align: center; background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--warn); }

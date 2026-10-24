@@ -26,7 +26,7 @@ A real classifier has its own misses and false positives. How many, and where, i
 | Ports 6500-6549 | Servers refuse a port outside the range; the gateway refuses a sidecar URL outside it. | `safety.test.js`, `netguard.test.js` |
 | No outbound traffic | The gateway calls only an http loopback sidecar URL, with redirects disabled. A test blocks every non-loopback socket, DNS lookup and fetch while all scenarios run. | `netguard.test.js` |
 | Host check | Missing, malformed or non-loopback `Host` gets 421 (DNS rebinding). | `safety.test.js`, `api.test.js`, `sidecar.test.js` |
-| CSRF | A write with `Sec-Fetch-Site: cross-site` gets 403. An `Origin` header must be the same http loopback origin as the `Host`. Bodies must be `application/json` (415 otherwise). Reads are not guarded. | same |
+| CSRF | A write with `Sec-Fetch-Site: cross-site` gets 403. An `Origin` header must be the same http loopback origin as the `Host`. Bodies must be `application/json` (415 otherwise). Reads are not guarded. A write with no `Origin` at all is accepted (accepted residual risk: non-browser clients send none, and a cross-site page cannot send one; see [k8s.md](k8s.md) residual risks). | same, plus the `AI_GUARD_PUBLIC_ORIGIN` exception (se-mock only) |
 | No credentials | `Authorization`, `Proxy-Authorization` and `X-API-Key` are refused with 400. Cookies are not checked and never read. | same |
 | Bounded input | API body 16 KB, custom text 4,000 characters; sidecar body 64 KB, 32 units, 10,000 characters per unit; sidecar replies over 256 KB are rejected by the gateway (even when valid JSON). A regex-work bound keeps a 40,000-character run of repeated `a.` or `a-` fast. | `api.test.js`, `sidecar.test.js`, `gateway.test.js` |
 | Capped queue | Runs are serialised, with at most 4 running or waiting; more get 429. The decision log keeps 200 entries. | `api.test.js` |
@@ -38,6 +38,8 @@ A real classifier has its own misses and false positives. How many, and where, i
 | Untrusted sidecar | The gateway shape-checks the sidecar's reply, caps the findings, treats an unknown severity as high and an unknown category as blocking at `high`, and masks and reveals strings again. | `gateway.test.js` |
 
 ## What is not checked
+
+- Writes with no `Origin` header are accepted on purpose (pinned by `server/test/se-mock.test.js`). This is an accepted residual risk, not a missing check: without an Origin there is no browser CSRF path to block.
 
 - The last four digits of an SSN or card, and the domain of an email, stay visible in masked values.
 - The gateway and the browser share one origin; there is no authentication, because there is nothing to protect: no real tenant, no real data.

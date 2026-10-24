@@ -7,6 +7,10 @@ import { maskPii } from './pii.js';
 import { redactText } from './redaction.js';
 import { revealText } from './sanitize.js';
 import { credentialGuard, hostGuard, isLoopbackHost, originGuard, portInRange } from './safety.js';
+import { DEFAULT_WORKSPACE, WORKSPACE_RE } from './workspaces.js';
+
+// Set by the gateway on every call in MODE=se-mock, so the embedded sidecar keeps one state per visitor workspace.
+export const SIDECAR_WORKSPACE_HEADER = 'x-ai-guard-workspace';
 
 export const LIMITS = { bodyBytes: 64 * 1024, units: 32, textChars: 10000, roleChars: 64, configBytes: 2048, delayMaxMs: 10000, snippetChars: 200 };
 export const DEFAULT_SIDECAR_CONFIG = Object.freeze({
@@ -80,7 +84,15 @@ export function inspect(body, config) {
   return { findings };
 }
 
-export function createSidecarApp(state = createSidecarState(), { log = () => {} } = {}) {
+// stateFor(workspaceId) -> state, used by the embedded sidecar in MODE=se-mock. Without it every caller shares `state`
+// (the standalone sidecar, and the local demo, are unchanged).
+export function createSidecarApp(state = createSidecarState(), { log = () => {}, stateFor = null } = {}) {
+  const stateOf = (req) => {
+    if (!stateFor) return state;
+    const id = req.headers[SIDECAR_WORKSPACE_HEADER];
+    if (id !== undefined && (typeof id !== 'string' || !WORKSPACE_RE.test(id))) throw new Invalid('x-ai-guard-workspace is not a valid workspace id');
+    return stateFor(id ?? DEFAULT_WORKSPACE);
+  };
   const app = express();
   app.disable('x-powered-by');
   app.use(hostGuard);
@@ -92,23 +104,26 @@ export function createSidecarApp(state = createSidecarState(), { log = () => {} 
   app.all('/health', (_req, res) => res.set('Allow', 'GET').status(405).json({ error: 'method_not_allowed' }));
 
   const json = (limit) => express.json({ limit, strict: true });
-  const sendConfig = (res) => res.json({ engine: ENGINE, standIn: true, config: state.config, fault: state.fault, rails: RAILS });
+  const sendConfig = (res, st) => res.json({ engine: ENGINE, standIn: true, config: st.config, fault: st.fault, rails: RAILS });
 
-  app.get('/demo/config', (_req, res) => sendConfig(res));
+  app.get('/demo/config', (req, res) => sendConfig(res, stateOf(req)));
   app.put('/demo/config', json(LIMITS.configBytes), (req, res) => {
-    state.config = validateSidecarConfig(req.body);
-    sendConfig(res);
+    const st = stateOf(req);
+    st.config = validateSidecarConfig(req.body);
+    sendConfig(res, st);
   });
-  app.get('/demo/fault', (_req, res) => res.json({ fault: state.fault, modes: FAULT_MODES }));
+  app.get('/demo/fault', (req, res) => res.json({ fault: stateOf(req).fault, modes: FAULT_MODES }));
   app.put('/demo/fault', json(LIMITS.configBytes), (req, res) => {
-    state.fault = validateFault(req.body);
-    res.json({ fault: state.fault, modes: FAULT_MODES });
+    const st = stateOf(req);
+    st.fault = validateFault(req.body);
+    res.json({ fault: st.fault, modes: FAULT_MODES });
   });
 
   app.post('/inspect', json(LIMITS.bodyBytes), (req, res) => {
+    const st = stateOf(req);
     const respond = () => {
       let result;
-      try { result = inspect(req.body, state.config); } catch (e) {
+      try { result = inspect(req.body, st.config); } catch (e) {
         if (e instanceof Invalid) return res.status(e.status || 400).json({ error: e.status === 413 ? 'payload_too_large' : 'bad_request', message: e.message });
         log('inspect_failed');
         return res.status(502).json({ error: 'inspect_failed' });
@@ -117,7 +132,7 @@ export function createSidecarApp(state = createSidecarState(), { log = () => {} 
       log(`${(req.body.units || []).length} unit(s) -> ${result.findings.map((f) => `${f.category}/${f.severity}`).join(', ') || 'allow'}`);
       res.set('X-Guard-Engine', ENGINE).json(result);
     };
-    const { mode, delayMs } = state.fault;
+    const { mode, delayMs } = st.fault;
     if (mode === 'error') { log('injected fault: 502'); return res.status(502).json({ error: 'inspect_failed', message: 'injected fault' }); }
     if (mode === 'timeout' || mode === 'slow') {
       // timeout: hold the connection until the caller gives up. slow: answer after delayMs. Timers are cleared on close.
@@ -141,11 +156,11 @@ export function createSidecarApp(state = createSidecarState(), { log = () => {} 
 }
 
 // The sidecar never binds anything but loopback.
-export async function startSidecar({ port, host = '127.0.0.1', state = createSidecarState(), log } = {}) {
+export async function startSidecar({ port, host = '127.0.0.1', state = createSidecarState(), log, stateFor = null } = {}) {
   if (!isLoopbackHost(host)) throw new Error(`refusing to bind the sidecar to ${host}: loopback only`);
   if (!portInRange(port)) throw new Error(`sidecar port ${port} is outside 6500-6549`);
   return new Promise((resolve, reject) => {
-    const server = createSidecarApp(state, { log }).listen(port, host);
+    const server = createSidecarApp(state, { log, stateFor }).listen(port, host);
     server.once('error', reject);
     server.once('listening', () => resolve({
       port: server.address().port, state, url: `http://127.0.0.1:${server.address().port}`,

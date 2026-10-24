@@ -22,6 +22,7 @@ const STAND_IN = { notice: "A deterministic keyword stand-in.", limits: [
   { id: "f", kind: "false-positive", text: "How do I stop users typing 'ignore all previous instructions'?", why: "Quoting.", flagged: true },
 ] };
 
+let INFO = { mode: "local", hosted: false, banner: null };
 let calls; let runs;
 beforeEach(() => {
   calls = []; runs = { benign: [benignRun()], "direct-injection": [injectionRun()], "outage-502": [outageRun(true), outageRun(false)] };
@@ -34,6 +35,7 @@ beforeEach(() => {
     if (url === "/api/scenarios") return ok({ scenarios: SCENARIOS });
     if (url === "/api/config" && method === "GET") return ok(CONFIG);
     if (url === "/api/config") return ok(CONFIG);
+    if (url === "/api/info") return ok(INFO);
     if (url === "/api/stand-in") return ok(STAND_IN);
     if (url === "/api/decisions") return ok({ count: 0, decisions: [] });
     if (url === "/api/fault") return ok({ fault: body });
@@ -50,6 +52,21 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const ready = async () => { render(<App />); await screen.findByLabelText("Benign prompt"); };
 
 describe("App", () => {
+  it("shows no hosted banner in the local demo", async () => {
+    await ready();
+    expect(screen.queryByTestId("hosted-banner")).toBeNull();
+  });
+
+  it("shows the server's hosted-and-simulated banner above the app, and sends the workspace id on every call", async () => {
+    INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic." };
+    await ready();
+    expect(screen.getByTestId("hosted-banner")).toHaveTextContent("HOSTED SIMULATION");
+    const id = calls.find((c) => c.url === "/api/info").headers["X-Workspace-Id"];
+    expect(id).toMatch(/^w-[0-9a-f]{12}$/);
+    expect(calls.every((c) => c.headers["X-Workspace-Id"] === id)).toBe(true);
+    INFO = { mode: "local", hosted: false, banner: null };
+  });
+
   it("shows the DEMO, STAND-IN and UNVERIFIED badges and the provenance text", async () => {
     await ready();
     const badges = screen.getByTestId("mode-badge");
@@ -140,7 +157,7 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Run my text" }));
     await screen.findByTestId("exchange-request");
     expect(calls.find((c) => c.url === "/api/run").body).toEqual({ custom: { requestText: "hello" } });
-    expect(Object.keys(calls.find((c) => c.url === "/api/run").headers).sort()).toEqual(["Accept", "Content-Type"]);
+    expect(Object.keys(calls.find((c) => c.url === "/api/run").headers).sort()).toEqual(["Accept", "Content-Type", "X-Workspace-Id"]);
   });
 
   it("Reset asks the server to reset and clears the result", async () => {
