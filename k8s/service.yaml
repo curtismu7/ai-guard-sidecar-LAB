@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-guard-sidecar
+  labels: { app: ai-guard-sidecar }
+spec:
+  selector: { app: ai-guard-sidecar }
+  ports:
+    - { name: http, port: 80, targetPort: http }

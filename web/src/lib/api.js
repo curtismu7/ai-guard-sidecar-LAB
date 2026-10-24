@@ -1,6 +1,9 @@
-// Thin fetch wrapper. JSON only, same origin, no credentials, no extra headers.
+import { getWorkspaceId } from "./workspace.js";
+
+// Thin fetch wrapper. JSON only, same origin, no credentials. The only extra header is the workspace id (used by the
+// mock-only SE build; the local server ignores it).
 async function call(path, method = "GET", body) {
-  const init = { method, headers: { Accept: "application/json" } };
+  const init = { method, headers: { Accept: "application/json", "X-Workspace-Id": getWorkspaceId() } };
   if (body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
   const res = await fetch(path, init);
   let json = null;
@@ -13,6 +16,7 @@ async function call(path, method = "GET", body) {
   return json;
 }
 
+export const getInfo = () => call("/api/info");
 export const getScenarios = () => call("/api/scenarios");
 export const getConfig = () => call("/api/config");
 export const putConfig = (body) => call("/api/config", "PUT", body);

@@ -22,7 +22,9 @@ const free = (port) => new Promise((resolve) => {
   s.once('error', (e) => resolve(e.code));
   s.listen(port, '127.0.0.1', () => s.close(() => resolve(null)));
 });
-const wanted = [['server', serverPort()], ['standalone-sidecar', sidecarPort()]];
+// The standalone sidecar process is refused in MODE=se-mock, so its port is not part of that build's checks.
+const wanted = [['server', serverPort()]];
+if (process.env.MODE !== 'se-mock') wanted.push(['standalone-sidecar', sidecarPort()]);
 if (!process.env.AI_GUARD_SIDECAR_URL) wanted.push(['embedded-sidecar', embeddedSidecarPort()]);
 for (const [name, port] of wanted) {
   const err = await free(port);

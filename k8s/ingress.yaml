@@ -1,0 +1,14 @@
+# The host is supplied by k8s/deploy.sh from SE_HOST (an SE-cluster host the owner names). There is deliberately no default.
+# The app checks the Host header for loopback names only, so the ingress rewrites it to 127.0.0.1:6500 for the pod.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-guard-sidecar
+  annotations:
+    nginx.ingress.kubernetes.io/upstream-vhost: "127.0.0.1:6500"
+spec:
+  rules:
+    - host: __SE_HOST__
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: ai-guard-sidecar, port: { name: http } } } }

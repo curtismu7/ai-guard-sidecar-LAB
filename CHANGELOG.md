@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- k8s: mock-only SE build (rule 18). `MODE=local` (default) or `MODE=se-mock`: live features (external sidecar URL, standalone sidecar port) are refused at startup and by the doctor; the standalone sidecar and `.env` are not used in se-mock. Per-visitor workspaces (`X-Workspace-Id`, strict id, cap of 50, 30-minute TTL) hold each visitor's gateway config, fault injector, decision log and run queue; the embedded sidecar keeps one state per workspace. `GET /api/info` gives the hosted banner; `/api/health` (`demo-health/1`) reports the mode. Manifests (probes, non-root, read-only root, dropped capabilities, no privileged, no hostPath), `k8s/deploy.sh` (needs `OWNER_APPROVED=1`, nothing deployed), `scripts/k8s.test.mjs`, `docs/k8s.md`. Server tests run one file at a time (`--test-concurrency=1`) so port slices cannot collide.
+
 ## 0.1.0
 
 - AG3: packaging. Dockerfile healthcheck; content pack (`content/`, build and validate scripts, copied schema, tests); shelf entry for catalog D12 with the shelf's registry rules copied and tested; README Docker, shelf and pack sections.

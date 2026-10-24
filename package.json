@@ -15,7 +15,7 @@
   "scripts": {
     "start": "npm start -w server",
     "sidecar": "npm run sidecar -w server",
-    "test": "npm test -w server && npm test -w web && node --test scripts/compose.test.mjs scripts/docs.test.mjs scripts/content-pack.test.mjs scripts/shelf-entry.test.mjs",
+    "test": "npm test -w server && npm test -w web && node --test scripts/compose.test.mjs scripts/docs.test.mjs scripts/content-pack.test.mjs scripts/shelf-entry.test.mjs scripts/k8s.test.mjs scripts/doctor.test.mjs",
     "doctor": "node scripts/doctor.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "npm run dev -w web",

@@ -11,6 +11,7 @@ import Outage from "./components/Outage.jsx";
 import StandInPanel from "./components/StandInPanel.jsx";
 import Log from "./components/Log.jsx";
 import Inert from "./components/Inert.jsx";
+import HostedBanner from "./components/HostedBanner.jsx";
 
 const THEME_KEY = "ai-guard-theme";
 const readTheme = () => {
@@ -35,6 +36,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState(null);
   const saveTimer = useRef(null);
   const latest = useRef({});
 
@@ -51,6 +53,7 @@ export default function App() {
   useEffect(() => {
     api.getScenarios().then((s) => setScenarios(s.scenarios)).catch(fail);
     loadConfig(); refreshStandIn(); refreshDecisions();
+    api.getInfo().then(setInfo).catch(() => setInfo(null));
   }, [loadConfig, refreshStandIn, refreshDecisions]);
 
   const gw = config?.gateway;
@@ -129,6 +132,7 @@ export default function App() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
+      <HostedBanner banner={info?.banner} />
       <header className="top">
         <div className="top-in">
           <h1>AI Guard Sidecar</h1>

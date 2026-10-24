@@ -1,0 +1,52 @@
+# MOCK-ONLY hosted build of ai-guard-sidecar for the SE cluster (rule 18). Same image and Dockerfile as the standalone,
+# MODE=se-mock: live features are refused at startup, each visitor gets a workspace (X-Workspace-Id), and the banner says
+# HOSTED SIMULATION. No secrets, no tenant ids, no volumes with data. The __IMAGE__ token is filled by k8s/deploy.sh;
+# nothing here names a real host or registry path.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-guard-sidecar
+  labels: { app: ai-guard-sidecar }
+spec:
+  replicas: 1   # state is in memory and per workspace; more replicas would split a visitor's workspace across pods
+  selector:
+    matchLabels: { app: ai-guard-sidecar }
+  template:
+    metadata:
+      labels: { app: ai-guard-sidecar }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: app
+          image: __IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 6500 }
+          env:
+            - { name: MODE, value: se-mock }
+            - { name: AI_GUARD_PORT, value: "6500" }
+            - { name: AI_GUARD_BIND, value: 0.0.0.0 }
+            - { name: AI_GUARD_PUBLIC_ORIGIN, value: "https://__SE_HOST__" }
+          readinessProbe:
+            httpGet: { path: /api/health, port: http, httpHeaders: [{ name: Host, value: "127.0.0.1:6500" }] }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http, httpHeaders: [{ name: Host, value: "127.0.0.1:6500" }] }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 16Mi } }

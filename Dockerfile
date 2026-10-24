@@ -11,7 +11,8 @@ RUN npm run build -w web
 
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production AI_GUARD_PORT=6500
+# MODE=local is the standalone demo; the mock-only SE build sets MODE=se-mock in its manifest (k8s/deployment.yaml).
+ENV NODE_ENV=production AI_GUARD_PORT=6500 MODE=local
 COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY server/package.json server/

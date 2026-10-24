@@ -12,13 +12,16 @@ npm run doctor      # preflight, exit 0 when sound and ports free
 npm run e2e         # headless Chromium against the built UI (6520/6521)
 npm run content-pack  # regenerate and validate content-pack.json
 npm start           # http://127.0.0.1:6500 (embedded sidecar 6502); build first
-npm run sidecar     # standalone sidecar on 6501
+npm run sidecar     # standalone sidecar on 6501 (refused under MODE=se-mock)
 ```
+
+Mode: `MODE=local` (default) is the demo. `MODE=se-mock` is the mock-only SE k8s build (rule 18): live settings refused, per-visitor workspaces (`X-Workspace-Id`), a hosted banner, manifests in `k8s/`. See [docs/k8s.md](docs/k8s.md). Nothing is deployed from here; the first SE deploy needs owner approval.
 
 Ports: 6500 app, 6501 sidecar, 6502 embedded sidecar, 6510 Vite, 6520/6521 e2e, 6530-6549 tests. Everything stays in 6500-6549.
 
 ## Rules that bite here
 
+- Mock-only build: in `se-mock` every new piece of app state belongs to a workspace (`server/src/workspaces.js`), and a new live setting must be added to `REFUSED_IN_SE_MOCK` in `config.js`. Do not add a process-wide mutable store.
 - Loopback only, with the Host check and Origin / Sec-Fetch-Site checks on writes. No real network, no real tenants, no credentials accepted. Netguard test asserts zero outbound attempts.
 - All user or sidecar text is rendered inert (hidden characters shown as `[U+XXXX]`, PII masked, secrets redacted). Keep it that way in new UI.
 - Test scripts use globs (`test/*.test.js`), never a directory (fails on Node 22).
@@ -30,7 +33,7 @@ Ports: 6500 app, 6501 sidecar, 6502 embedded sidecar, 6510 Vite, 6520/6521 e2e, 
 
 ## Where the safety claims are pinned
 
-`server/test/safety.test.js` (bind, Host, CSRF, ports, credentials), `netguard.test.js` (zero outbound), `api.test.js`, `sidecar.test.js`, `gateway.test.js` (bounds, inert text, masking, untrusted sidecar), `detectors.test.js`, `scripts/compose.test.mjs` (Docker publish), `scripts/docs.test.mjs` (docs match code). Table: [docs/safety.md](docs/safety.md).
+`server/test/safety.test.js` (bind, Host, CSRF, ports, credentials), `netguard.test.js` (zero outbound), `api.test.js`, `sidecar.test.js`, `gateway.test.js` (bounds, inert text, masking, untrusted sidecar), `detectors.test.js`, `scripts/compose.test.mjs` (Docker publish), `scripts/docs.test.mjs` (docs match code), `scripts/k8s.test.mjs` (manifests), `server/test/se-mock.test.js` and `workspaces.test.js` (isolation, cap, TTL). Table: [docs/safety.md](docs/safety.md).
 
 ## Shelf and content pack
 
