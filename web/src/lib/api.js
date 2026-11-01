@@ -11,6 +11,7 @@ async function call(path, method = "GET", body) {
   if (!res.ok) {
     const err = new Error(json?.message || json?.error || `HTTP ${res.status}`);
     err.status = res.status;
+    err.body = json; // a refusal can carry a list of reasons (Errors for a rule paste, errors for prompt-log settings)
     throw err;
   }
   return json;
@@ -27,3 +28,9 @@ export const getDecisions = () => call("/api/decisions");
 export const runScenario = (scenario) => call("/api/run", "POST", { scenario });
 export const runCustom = (custom) => call("/api/run", "POST", { custom });
 export const postReset = () => call("/api/reset", "POST");
+export const getH2 = () => call("/api/h2");
+export const getRules = () => call("/api/rules");
+export const putRules = (toml) => call("/api/rules", "PUT", { toml });
+export const deleteRules = () => call("/api/rules", "DELETE");
+export const getPromptLog = () => call("/api/prompt-log");
+export const putPromptLog = (config) => call("/api/prompt-log", "PUT", config);

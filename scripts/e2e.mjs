@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { SAMPLES } from '../server/src/pii.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const shots = process.env.E2E_SHOTS || path.join(root, '.data', 'e2e-screenshots');
@@ -34,10 +35,11 @@ const scenarioList = (await (await fetch(`${base}/api/scenarios`)).json()).scena
 const browser = await chromium.launch({ executablePath: process.env.E2E_CHROMIUM || undefined });
 try {
   const page = await browser.newPage({ viewport: { width: 1360, height: 900 }, colorScheme: 'light' });
-  const external = []; const errors = []; const dialogs = [];
+  const external = []; const errors = []; const dialogs = []; const refused = [];
   page.on('request', (r) => { if (!r.url().startsWith(base) && !/^(data|blob):/.test(r.url())) external.push(r.url()); });
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  // A deliberate 4xx (a refused rule paste, refused prompt-log settings) is logged by the browser as a console error: counted apart.
+  page.on('console', (m) => { if (m.type() === 'error') (/status of 4\d\d/.test(m.text()) ? refused : errors).push(m.text()); });
   page.on('dialog', (d) => { dialogs.push(d.message()); d.dismiss(); });
   const shot = (name) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
   const active = () => page.evaluate(() => { const e = document.activeElement; const lab = e?.labels?.[0]?.textContent?.trim().slice(0, 40); return `${e?.tagName}|${e?.getAttribute('aria-label') || e?.id || ''}|${lab || (e?.textContent || '').trim().slice(0, 40)}`; });
@@ -223,6 +225,62 @@ try {
   await page.setViewportSize({ width: 1360, height: 900 });
   await sleep(300);
   await shot('7-light');
+
+  // H2 2026 release tab (Ping release claims, UNVERIFIED on our tenant).
+  await page.getByTestId('tab-h2').click();
+  await page.getByTestId('numbers').waitFor();
+  check((await page.getByTestId('release-banner').innerText()) === 'Ping release claim, UNVERIFIED on our tenant', 'the release banner is on the H2 tab');
+  const h2 = await (await fetch(`${base}/api/h2`)).json();
+  const kindRow = await page.getByTestId('num-pii-kinds').innerText();
+  check(kindRow.includes('23') && kindRow.includes(String(h2.kinds.length)) && /deck claim/.test(kindRow), 'Ping\'s 23 sits beside the app\'s own computed count, tagged');
+  check((await page.locator('[data-testid^="valid-"]').allInnerTexts()).every((t) => t === 'found') && (await page.locator('[data-testid^="near-"]').allInnerTexts()).every((t) => t === 'not found'), 'every kind\'s proof holds in the page');
+  await page.getByTestId('kinds-original').click();
+  const dni = SAMPLES['es-dni'].valid();
+  const h2run = async (text) => { await page.locator('#h2-text').fill(text); await page.getByTestId('h2-run').click(); await page.getByTestId('h2-recorded').waitFor(); await page.waitForFunction(() => !document.querySelector('[data-testid="h2-run"]').disabled); };
+  await h2run(`my id is ${dni}`);
+  check(/ALLOW/.test(await page.getByTestId('h2-recorded').innerText()), 'a kind that is off raises no finding');
+  await page.getByLabel('Detect Spanish DNI-shaped national id').check();
+  await sleep(500);
+  await h2run(`my id is ${dni}`);
+  check(/BLOCK at request/.test(await page.getByTestId('h2-recorded').innerText()), 'the same text is blocked once the kind is on');
+  check(!(await page.locator('#panel-h2').getByTestId('findings-request').innerText()).includes(dni) && !(await page.locator('main').innerText()).includes(dni), 'the value itself is nowhere in the page');
+  await page.getByTestId('rules-example').click();
+  await page.getByTestId('rules-paste').click();
+  await page.getByTestId('rules-added').waitFor();
+  await h2run('ticket ACME-12345678 please');
+  check(/BLOCK at request/.test(await page.getByTestId('h2-recorded').innerText()) && !(await page.locator('main').innerText()).includes('ACME-12345678'), 'a pasted rule blocks its match and the match is masked');
+  await page.getByTestId('rules-clear').click();
+  await page.getByTestId('rules-example-bad').click();
+  await page.getByTestId('rules-paste').click();
+  await page.getByTestId('rules-refused').waitFor();
+  check(/nothing was added/.test(await page.getByTestId('rules-refused').innerText()) && (await (await fetch(`${base}/api/rules`)).json()).custom.length === 0, 'one bad rule refuses the whole paste');
+  await page.getByTestId('pl-gen').click();
+  await page.getByTestId('pl-save').waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid="pl-keyring"]').textContent.includes('key-1'));
+  await page.getByTestId('pl-enabled').check();
+  await page.getByTestId('pl-responses').check();
+  await page.getByTestId('pl-save').click();
+  await page.getByTestId('pl-status').filter({ hasText: 'Recording' }).waitFor();
+  await h2run('please remember this sentence about oranges');
+  check(/Sealed as/.test(await page.getByTestId('h2-recorded').innerText()), 'a run is sealed once a key is saved');
+  const log = await (await fetch(`${base}/api/prompt-log`)).json();
+  check(log.records.length === 1 && !JSON.stringify(log).includes('oranges'), 'the server holds only ciphertext');
+  await page.getByTestId(`open-${log.records[0].id}`).click();
+  await page.getByTestId(`opened-${log.records[0].id}`).waitFor();
+  check((await page.getByTestId(`opened-${log.records[0].id}`).innerText()).includes('oranges'), 'the record opens in the page with the key held there (real WebCrypto)');
+  await page.getByTestId('pl-kid').fill('has space');
+  await page.getByTestId('pl-save').click();
+  await page.getByTestId('pl-errors').waitFor();
+  check(refused.length >= 2, `the deliberate refusals are the only 4xx console messages (${refused.length})`);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await sleep(400);
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal page scroll at 390px on the H2 tab');
+  await shot('8-h2-phone');
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await sleep(300);
+  await shot('9-h2');
+  await page.getByTestId('tab-demo').click();
+  check(await page.getByLabel('Prompt sent by the client').isVisible(), 'switching back to the first tab shows it again');
 
   check(external.length === 0, `no request left the origin ${JSON.stringify(external)}`);
   check(errors.length === 0, `no page or console errors ${JSON.stringify(errors)}`);

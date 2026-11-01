@@ -78,7 +78,10 @@ Limits: body 64 KB, 32 units, 10,000 characters per unit; over the limit gives 4
 | `GET /api/config`, `PUT /api/config` | gateway settings (`failClosed`, `timeoutMs`, per-category `blockThresholds` of `low`/`medium`/`high`/`none`) and sidecar settings (detector `threshold`, `benignLabels`, `rails`); every field is validated and a rejected request changes nothing |
 | `GET /api/fault`, `PUT /api/fault` | the fault injector: `{"mode":"error"\|"timeout"\|"slow"\|"none","delayMs":0}` |
 | `GET /api/stand-in` | the stand-in's documented limits, computed live |
-| `POST /api/reset` | defaults, no fault, empty decision log |
+| `GET /api/h2` | the H2 2026 release content: the banner, the claim-tag legend, Ping's numbers beside the app's own computed ones, the per-kind and per-detector proofs |
+| `GET /api/rules`, `PUT /api/rules`, `DELETE /api/rules` | your own gitleaks-format rules: `{"toml":"..."}` in, `{"Added":[...],"Errors":[]}` out; one bad rule refuses the whole paste (400 with `Errors`) |
+| `GET /api/prompt-log`, `PUT /api/prompt-log` | prompt logging settings (`Enabled`, `PublicKey`, `KeyID`, `Surfaces`, `IncludeResponses`, `MaxBytes`) and the sealed records |
+| `POST /api/reset` | defaults, no fault, empty decision log, no pasted rules, the original five personal-data kinds, the secrets rail off, prompt logging cleared |
 
 ```sh
 curl -s -X POST http://127.0.0.1:6500/api/run -H 'content-type: application/json' -d '{"scenario":"pii-response"}'
@@ -103,6 +106,19 @@ Open `http://127.0.0.1:6500/` after `npm run build && npm start`. Top to bottom:
 - **Decision log**.
 
 `STAND-IN` and `UNVERIFIED` badges sit beside every panel that shows detection or gateway behaviour; the `DEMO` badge is in the header. Dark and light themes follow your system and can be toggled; there is no purple. The server serves `web/dist` with a same-origin CSP (`default-src 'self'`, no inline script; inline styles are allowed for the diagram library). One API addition for the UI: each inspected stage in a run carries `exchange` (the request body as sent and the answer in contract shape, both display copies with PII masked).
+
+## H2 2026 release features (Ping release claims, UNVERIFIED on our tenant)
+
+The second tab, **H2 2026 release**, tries the data-protection ideas from Ping's deck "ID4AI Workforce - H2 2026" (slides 50 and 53, release dated 2026-11-02). **Every product claim there is a Ping release claim, UNVERIFIED on our tenant**: the release is not on our tenant and nothing was measured. A banner says so on both tabs, and each field carries a tag: deck claim, console swagger name (schema only), lab reading, lab-invented, measured (our note; nothing is). The first tab behaves as before until you switch something on.
+
+- **Personal-data kinds.** Ping's deck says the release goes from 5 to 23 kinds with checksum validation and per-kind detection. This app ships its own, smaller, illustrative set (the original five plus six more, each with a real check digit or a structural check, proved live on a valid sample and a near miss) and lets you choose which kinds raise a finding. Ping's list is not reproduced.
+- **Secret detectors.** Ping says 364 secret and credential detectors (411 rules with 47 behavioural). This app has twelve of its own, off by default behind a switch. The numbers are shown side by side, Ping's labelled as the deck's and the app's computed from its engine.
+- **Your own rules.** Paste rules in the gitleaks rule format ("your own formats paste in unchanged" is the deck's claim; the key names are this app's reading). One bad rule refuses the whole paste and nothing is added. Patterns are checked before they run and the pattern is never shown back.
+- **Prompt logging sealed to your key.** Make an X25519 key pair in the browser, save its public half, and each run is sealed on the server to it. The server has no decrypt code and refuses a private key; you open a record in the page with the private half, which lives in memory only. The envelope format is this app's own.
+- **Cut on purpose.** The deck's fourth outcome, sanitize, is not modelled (allow, alert and block are). The deck's compliance mapping, behavioural scoring and model-based second layer are not modelled either.
+- **Not changed:** the Non-Human Identity to Federated Identity rename (display name only; the API name is unchanged) has nothing to rename here: this app does not name the Privilege object.
+
+Masking of what you type is a heuristic (see [docs/safety.md](docs/safety.md)). The browser logs the deliberate 4xx answers (a refused paste, refused settings) as console messages; that is expected.
 
 ## Safety, in one paragraph
 
@@ -132,13 +148,16 @@ script are in `k8s/`. Nothing is deployed from this repo; the first deploy needs
 
 ## Learning Hub content pack
 
-`content-pack.json` (format `demo-content-pack/1`) is generated from `content/terms.json` (11 glossary terms, including the UNVERIFIED and STAND-IN statements) and `content/stories.json` (the four story-strip steps, same text as the UI; a test checks that), plus four cards. The schema is a copy, in `docs/content-pack.schema.json`, of the one the Learning Hub uses. `sources` is empty: no public documentation URL was verified. The pack was also run once through the Learning Hub's own `validate-pack`.
+`content-pack.json` (format `demo-content-pack/1`) is generated from `content/terms.json` (11 glossary terms, including the UNVERIFIED and STAND-IN statements) plus six H2 2026 terms generated from `server/src/h2.js` (the Ping numbers, kinds, your own rules, sealed prompt logging and the two why-it-matters entries, each marked as a Ping claim UNVERIFIED on our tenant) and `content/stories.json` (the four story-strip steps, same text as the UI; a test checks that), plus seven cards. The schema is a copy, in `docs/content-pack.schema.json`, of the one the Learning Hub uses. `sources` is empty: no public documentation URL was verified. The pack was also run once through the Learning Hub's own `validate-pack`.
 
 ```sh
 npm run content-pack      # regenerate and validate with ajv
 node scripts/validate-content-pack.mjs [file]
+npm run talk-track        # regenerate docs/talk-track.md (content/talk-track.base.md plus the generated H2 2026 section)
 ```
+
+The talk track [docs/talk-track.md](docs/talk-track.md) is generated: edit `content/talk-track.base.md` or `server/src/h2.js`, not the output; `scripts/talk-track.test.mjs` fails when it is stale.
 
 ## Layout
 
-`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `web/` the React UI (`web/src`, vitest tests), `scripts/e2e.mjs` the browser run, `scripts/` the doctor, the build and validate scripts for the content pack, and the doc, compose, content-pack and shelf-entry tests (`scripts/lib/` holds the copied shelf rules), `content/` the pack's source text.
+`server/src` holds the code (`sidecar.js`, `detectors.js`, `pii.js`, `secrets.js`, `rules.js`, `promptlog.js`, `h2.js`, `gateway.js`, `service.js`, `scenarios.js`, `app.js`), `server/test` the tests, `web/` the React UI (`web/src`, vitest tests), `scripts/e2e.mjs` the browser run, `scripts/` the doctor, the build and validate scripts for the content pack, and the doc, compose, content-pack and shelf-entry tests (`scripts/lib/` holds the copied shelf rules), `content/` the pack's source text.

@@ -71,3 +71,16 @@ test('CLAUDE.md and the talk track exist and name the app port', () => {
     assert.match(read(f), /6500/, `${f} does not mention port 6500`);
   }
 });
+
+test('the H2 2026 limits the docs state are the ones in the code, and the release claims are labelled', async () => {
+  const { TOML_LIMITS, RULE_LIMITS } = await import('../server/src/rules.js');
+  const { PL_STORE } = await import('../server/src/promptlog.js');
+  const { LIMITS } = await import('../server/src/sidecar.js');
+  const safety = read('docs/safety.md');
+  const section = safety.slice(safety.indexOf('## The H2 2026 release additions'), safety.indexOf('## The web UI'));
+  assert.ok(section.includes(`${TOML_LIMITS.bytes.toLocaleString('en-US')} characters, ${TOML_LIMITS.lines} lines, ${RULE_LIMITS.rulesPerWorkspace} rules per workspace, ${RULE_LIMITS.matchesPerRule} matches per rule`), 'the paste limits');
+  assert.ok(section.includes(`a ring of ${PL_STORE.maxRecords}`), 'the record ring');
+  assert.ok(section.includes(`${LIMITS.textChars.toLocaleString('en-US')} characters`), 'the unit cap');
+  for (const d of ['README.md', 'docs/safety.md', 'CLAUDE.md']) assert.match(read(d), /UNVERIFIED on our tenant/, d);
+  assert.match(read('README.md'), /Ping release claims, UNVERIFIED on our tenant/);
+});

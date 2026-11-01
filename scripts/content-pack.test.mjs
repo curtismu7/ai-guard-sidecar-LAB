@@ -42,3 +42,18 @@ test('a commit is recorded only when passed', () => {
   assert.equal(buildPack().source, undefined);
   assert.equal(buildPack({ commit: 'abc1234' }).source.commit, 'abc1234');
 });
+
+test('the H2 2026 terms and cards are in the pack, every one says it is a Ping release claim UNVERIFIED on our tenant, and Ping\'s numbers are Ping\'s', () => {
+  const pack = buildPack();
+  for (const id of ['ping-release-numbers', 'personal-data-kinds', 'own-rules', 'prompt-logging-sealed', 'why-aiguard', 'why-prompt-logging']) {
+    const g = pack.glossary.find((x) => x.id === id);
+    assert.ok(g, id);
+    assert.match(g.definition, /UNVERIFIED on our tenant/, id);
+  }
+  for (const id of ['h2-kinds', 'h2-rules', 'h2-prompt-logging']) assert.match(pack.cards.find((c) => c.id === id).description, /UNVERIFIED on our tenant/, id);
+  const numbers = pack.glossary.find((x) => x.id === 'ping-release-numbers').definition;
+  assert.match(numbers, /Ping's deck \(slide 53\) says 23 personal-data kinds.*364.*47.*411/);
+  assert.match(numbers, /not measured by us/);
+  const why = pack.glossary.find((x) => x.id === 'why-aiguard').definition;
+  assert.match(why, /Challenge: .*Technical: .*Business: /);
+});

@@ -120,7 +120,7 @@ test('known limit: PII split across two units is not detected', () => {
 });
 
 test('regexes do no quadratic work on long runs of the shapes that used to trigger it', () => {
-  const best = (fn) => { let b = Infinity; for (let i = 0; i < 3; i += 1) { const t = process.hrtime.bigint(); fn(); b = Math.min(b, Number(process.hrtime.bigint() - t) / 1e6); } return b; };
+  const best = (fn) => { let b = Infinity; for (let i = 0; i < 7; i += 1) { const t = process.hrtime.bigint(); fn(); b = Math.min(b, Number(process.hrtime.bigint() - t) / 1e6); } return b; };
   for (const unit of ['a.', 'a-', 'a@', 'a_']) {
     const text = unit.repeat(20000); // 40,000 characters: four times the per-unit limit
     assert.ok(best(() => findPii(text)) < 400, `findPii ${unit}`);

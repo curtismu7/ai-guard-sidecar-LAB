@@ -28,6 +28,7 @@ All of this is "as understood from the demo environment, UNVERIFIED against prod
 - `server/src/service.js`: gateway configuration, the one-at-a-time run queue (cap 4), scenario and custom runs, the fault injector (applied to the sidecar over its `/demo/fault` endpoint and restored after a scenario), reset.
 - `server/src/app.js`: Express app, guards, routes, `startHttpServer()` (starts the embedded sidecar, then the gateway server).
 - `server/src/safety.js`, `sanitize.js`, `redaction.js`: guards, inert text and secret redaction.
+- H2 2026 release additions (Ping release claims, UNVERIFIED on our tenant; see [safety.md](safety.md)): `server/src/pii.js` (selectable kinds with check digits), `secrets.js` (bundled secret detectors), `toml.js`, `safeRegex.js` and `rules.js` (your own gitleaks-format rules, kept in the sidecar's state; `GET/PUT/DELETE /demo/rules`), `fold.js` and `mask.js` (masking of what you type), `seal.js` and `promptlog.js` (prompt logging sealed to your key; the store lives in the service, one per workspace), `h2.js` (the one source of the H2 content: numbers, claim tags, why it matters; served by `GET /api/h2`, and used by the generated talk track and content pack). In the web UI: the "H2 2026 release" tab (`web/src/components/H2Tab.jsx`, `Kinds.jsx`, `Rules.jsx`, `PromptLog.jsx`) and `web/src/lib/seal.js` (opens a record with WebCrypto).
 
 ## Why the gateway talks to the sidecar over HTTP even when embedded
 

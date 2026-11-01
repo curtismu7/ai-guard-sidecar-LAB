@@ -14,7 +14,8 @@
       "guardrails",
       "prompt-injection",
       "pii",
-      "unverified-contract"
+      "unverified-contract",
+      "h2-2026"
     ]
   },
   "glossary": [
@@ -59,14 +60,34 @@
       ]
     },
     {
+      "id": "own-rules",
+      "term": "Your own gitleaks-format rules",
+      "definition": "Ping release claim, UNVERIFIED on our tenant: \"your own formats paste in unchanged\". In this app you paste rules with id, description, regex, keywords, entropy, secretGroup, category, severity and an allowlist; one bad rule refuses the whole paste; patterns are checked before they run and the pattern is never shown back. The key names are the app's reading of the gitleaks format."
+    },
+    {
       "id": "per-key-guardrail",
       "term": "Per-key guardrail",
       "definition": "A guardrail attached to the calling agent's key, so two callers sending the same A2A message can be treated differently: one enforcing, one observe-only. As understood from the demo environment; unverified here."
     },
     {
+      "id": "personal-data-kinds",
+      "term": "Personal-data kinds (selectable)",
+      "definition": "Ping release claim, UNVERIFIED on our tenant: detection is per kind, numeric kinds are checksum-validated, and your own formats can be pasted. In this app each kind is a regex plus a check digit or a structural check, you choose which kinds raise a finding (the original five by default), and every kind is masked in anything shown. The kind list is this app's own, not Ping's."
+    },
+    {
       "id": "pii-rail",
       "term": "PII rail",
-      "definition": "A detector for personal data scanned on both the request and the response direction. Here it is regex plus a check digit (Luhn for cards, mod 97 for IBAN-shaped values) for SSN, card, email, phone and IBAN shapes. It is not Presidio and it finds well-formed numbers, not every kind of personal data."
+      "definition": "A detector for personal data scanned on both the request and the response direction. Here it is regex plus a check digit where one exists (Luhn for cards, mod 97 for IBAN-shaped values, and others) over a catalogue of this app's own illustrative kinds. You choose which kinds raise a finding; the original five (SSN, card, email, phone, IBAN-shaped) are on by default, and every kind is masked in anything shown whatever is chosen. It is not Presidio and it finds well-formed values, not every kind of personal data."
+    },
+    {
+      "id": "ping-release-numbers",
+      "term": "Ping's release numbers versus this app's",
+      "definition": "Ping release claim, UNVERIFIED on our tenant. Ping's deck (slide 53) says 23 personal-data kinds (up from 5), 364 secret and credential detectors, 47 behavioural rules and 411 maintained rules in total. Those are Ping's figures, uncited in the deck and not measured by us. This app ships its own smaller illustrative sets (11 kinds, 12 secret detectors), computed from its engine and never presented as Ping's."
+    },
+    {
+      "id": "prompt-logging-sealed",
+      "term": "Prompt logging sealed to your key",
+      "definition": "Ping release claim, UNVERIFIED on our tenant: prompts and responses can be retained encrypted with a public key you supply, and the vendor never holds the private half. In this app the server seals each run to your X25519 public key (ephemeral key, HKDF-SHA256, AES-256-GCM: the envelope is the app's own invention), who and what was decided stay in the clear, nothing is recorded without a public key, and a record opens only in the page with a private key you hold. The server has no decrypt code."
     },
     {
       "id": "response-scanning",
@@ -85,6 +106,16 @@
       "id": "unverified",
       "term": "Unverified contract",
       "definition": "The contract and the gateway behaviour in this demo are as understood from the demo environment, UNVERIFIED against product documentation. Check the product documentation before relying on any detail."
+    },
+    {
+      "id": "why-aiguard",
+      "term": "Why it matters: AIGuard (deck slide 53)",
+      "definition": "Ping claims, UNVERIFIED on our tenant. Challenge: Authorization cannot see content: an agent following hidden instructions can exfiltrate data within policy. Technical: Content inspected in and out across MCP, A2A, LLM and coding-agent traffic; deterministic rules add no availability dependency. Business: A fraction of the cost of one incident; framework-mapped evidence for AI governance sign-off."
+    },
+    {
+      "id": "why-prompt-logging",
+      "term": "Why it matters: Prompt Logging (deck slide 50)",
+      "definition": "Ping claims, UNVERIFIED on our tenant. Challenge: Retaining prompts is what investigations need and what teams refuse to hand a vendor. Technical: Content sealed to your public key, decrypted only in your console session; Privilege never holds the private half. Business: Forensic retention becomes acceptable to security and legal."
     }
   ],
   "sources": [],
@@ -101,6 +132,51 @@
         "inert-text"
       ],
       "story": "S01",
+      "action": {
+        "type": "route",
+        "href": "/"
+      }
+    },
+    {
+      "id": "h2-kinds",
+      "label": "H2 2026: personal-data kinds and secret detectors",
+      "description": "Ping release claim, UNVERIFIED on our tenant. Choose which personal-data kinds raise a finding, see each check digit proved on a valid sample and a near miss, and try the app's own secret detectors. Ping's counts are quoted from its deck, never presented as the app's.",
+      "group": "try-it",
+      "terms": [
+        "personal-data-kinds",
+        "ping-release-numbers",
+        "pii-rail",
+        "unverified"
+      ],
+      "action": {
+        "type": "route",
+        "href": "/"
+      }
+    },
+    {
+      "id": "h2-prompt-logging",
+      "label": "H2 2026: prompt logging sealed to your key",
+      "description": "Ping release claim, UNVERIFIED on our tenant. Make a key pair in the browser, seal each run to the public half on the server, and open a record in the page with the private half.",
+      "group": "try-it",
+      "terms": [
+        "prompt-logging-sealed",
+        "why-prompt-logging",
+        "unverified"
+      ],
+      "action": {
+        "type": "route",
+        "href": "/"
+      }
+    },
+    {
+      "id": "h2-rules",
+      "label": "H2 2026: paste your own gitleaks-format rules",
+      "description": "Ping release claim, UNVERIFIED on our tenant. Paste rules in the gitleaks format; one bad rule refuses the whole paste and nothing is added.",
+      "group": "try-it",
+      "terms": [
+        "own-rules",
+        "unverified"
+      ],
       "action": {
         "type": "route",
         "href": "/"

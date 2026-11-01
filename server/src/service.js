@@ -6,6 +6,10 @@ import { DEFAULT_GATEWAY_CONFIG, Invalid, createGateway, validateGatewayConfig, 
 import { DEFAULT_SIDECAR_CONFIG } from './sidecar.js';
 import { STAND_IN_LIMITS, detectInjection } from './detectors.js';
 import { safeSnippet } from './sidecar.js';
+import { PromptLogInvalid, createPromptLog } from './promptlog.js';
+import { importToml } from './rules.js';
+import { LEGACY_KINDS } from './pii.js';
+import { h2Overview } from './h2.js';
 
 export const MAX_QUEUE = 4;
 export const CUSTOM_MAX_CHARS = 4000;
@@ -13,10 +17,14 @@ export { Invalid };
 
 export class QueueFull extends Error {}
 export class SidecarDown extends Error {}
+// A refusal that carries the list of reasons (a rejected rule paste, a rejected prompt-log setting).
+export class Refused extends Invalid { constructor(message, details, key) { super(message); this.details = details; this.key = key; } }
 
 export function createService({ sidecarUrl, fetchImpl, decisions = createDecisionLog(), workspace } = {}) {
   const gateway = createGateway({ sidecarUrl, fetchImpl, workspace });
   let config = structuredClone(DEFAULT_GATEWAY_CONFIG);
+  const promptLog = createPromptLog();
+  let localRules = []; // compiled copy of the pasted rules, used only to mask text shown back (the sidecar keeps its own)
 
   // One run at a time (faults and config are shared state); at most MAX_QUEUE waiting or running.
   let chain = Promise.resolve(); let pending = 0;
@@ -64,7 +72,9 @@ export function createService({ sidecarUrl, fetchImpl, decisions = createDecisio
       injectedFault: run.fault?.mode ?? null,
       ...result, expected: run.expect ?? null, expectationMet,
     });
-    return entry;
+    const categories = [...new Set(result.stages.flatMap((st) => (st.evaluations ?? []).map((e) => e.category)))];
+    const logged = promptLog.record({ surface: run.requestRole === 'a2a_message' ? 'a2a' : 'llm', requestText: run.requestText, upstreamText: run.upstreamText, caller: run.caller ?? null, result, categories });
+    return { ...entry, promptLog: logged.recorded ? { recorded: true, id: logged.record.id, kid: logged.record.kid } : { recorded: false, why: logged.why } };
   }
 
   const api = {
@@ -120,7 +130,7 @@ export function createService({ sidecarUrl, fetchImpl, decisions = createDecisio
     runCustom(c) {
       if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Invalid('custom must be an object');
       const extra = Object.keys(c).filter((k) => !['requestText', 'upstreamText', 'caller', 'failClosed', 'timeoutMs'].includes(k));
-      if (extra.length) throw new Invalid(`unknown field: ${safeSnippet(extra[0], 40)}`);
+      if (extra.length) throw new Invalid('unknown field (name hidden); allowed: requestText, upstreamText, caller, failClosed, timeoutMs');
       if (typeof c.requestText !== 'string' || !c.requestText.trim() || c.requestText.length > CUSTOM_MAX_CHARS) throw new Invalid(`requestText must be 1-${CUSTOM_MAX_CHARS} characters`);
       if (c.upstreamText !== undefined && (typeof c.upstreamText !== 'string' || c.upstreamText.length > CUSTOM_MAX_CHARS)) throw new Invalid(`upstreamText must be at most ${CUSTOM_MAX_CHARS} characters`);
       if (c.caller !== undefined && !(typeof c.caller === 'string' && Object.hasOwn(CALLERS, c.caller))) throw new Invalid(`caller must be one of ${Object.keys(CALLERS).join(', ')}`);
@@ -142,10 +152,42 @@ export function createService({ sidecarUrl, fetchImpl, decisions = createDecisio
 
     decisionList: () => decisions.list(),
 
+    // H2 2026 release features. Your own gitleaks-format rules live in the sidecar (one set per workspace); one bad rule refuses the whole paste.
+    getRules: () => adminOk('GET', '/demo/rules'),
+    putRules(toml) {
+      if (typeof toml !== 'string') throw new Invalid('toml must be a string');
+      return enqueue(async () => {
+        const r = await gateway.admin('PUT', '/demo/rules', { toml }).catch(() => { throw new SidecarDown('the sidecar is not reachable'); });
+        if (r.status === 400 && Array.isArray(r.json?.Errors)) throw new Refused(r.json.message, r.json.Errors.slice(0, 50).map((e) => safeSnippet(e, 400)), 'Errors');
+        if (r.status === 400) throw new Invalid(String(r.json?.message ?? 'invalid paste').slice(0, 200));
+        if (r.status !== 200 || !r.json) throw new SidecarDown(`the sidecar answered ${r.status}`);
+        localRules = [...localRules, ...importToml(toml, localRules).Added];
+        gateway.setMaskRules(localRules);
+        return r.json;
+      });
+    },
+    clearRules() {
+      return enqueue(async () => {
+        await adminOk('DELETE', '/demo/rules');
+        localRules = []; gateway.setMaskRules([]);
+        return { ok: true };
+      });
+    },
+    async h2() { return h2Overview((await adminOk('GET', '/demo/config')).config.piiKinds ?? LEGACY_KINDS); },
+    promptLogView: () => promptLog.view(),
+    putPromptLog(body) {
+      return enqueue(async () => {
+        try { promptLog.put(body); } catch (e) { if (e instanceof PromptLogInvalid) throw new Refused(e.message, e.errors, 'errors'); throw e; }
+        return promptLog.view();
+      });
+    },
+
     reset() {
       return enqueue(async () => {
         config = structuredClone(DEFAULT_GATEWAY_CONFIG);
         decisions.clear();
+        promptLog.reset(); localRules = []; gateway.setMaskRules([]);
+        await adminOk('DELETE', '/demo/rules');
         await adminOk('PUT', '/demo/config', DEFAULT_SIDECAR_CONFIG);
         await adminOk('PUT', '/demo/fault', { mode: 'none', delayMs: 0 });
       });

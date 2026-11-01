@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { createHealth } from './health.js';
-import { Invalid, QueueFull, SidecarDown, createService } from './service.js';
+import { Invalid, QueueFull, Refused, SidecarDown, createService } from './service.js';
 import { assertBindAllowed, assertSidecarUrl, bindHost, credentialGuard, embeddedSidecarPort, hostGuard, makeOriginGuard, portInRange, serverPort } from './safety.js';
 import { startSidecar, createSidecarState } from './sidecar.js';
 import { SE_MOCK_BANNER, modeFrom, publicOriginFrom, refusedFlagsSet } from './config.js';
@@ -15,7 +15,7 @@ import { DEFAULT_WORKSPACE, WORKSPACE_HEADER, WORKSPACE_RE, createWorkspaces } f
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 // 'anon-' + 16 hex characters: a valid workspace id (WORKSPACE_RE), unguessable, never reused.
 const anonymousWorkspace = () => `anon-${randomBytes(8).toString('hex')}`;
-const bad = (res, message, status = 400) => res.status(status).json({ error: status === 404 ? 'not_found' : 'bad_request', message });
+const bad = (res, message, status = 400, extra = {}) => res.status(status).json({ error: status === 404 ? 'not_found' : 'bad_request', message, ...extra });
 const API_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'", 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' };
 
 export const DEFAULT_WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -52,6 +52,12 @@ export function createApp({ service, workspaces = null, mode = 'local', health =
   const api = express.Router();
   api.use(credentialGuard);
   api.use('/health', health.router);
+  // A rule paste is larger than the other bodies, so its route has its own parser, ahead of the 16 KB one.
+  api.put('/rules', express.json({ limit: '48kb', strict: true }), wrap(async (req, res) => {
+    const b = req.body;
+    if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length !== 1 || !('toml' in b)) return bad(res, 'body must be exactly {toml}');
+    return res.json(await req.rt.service.putRules(b.toml));
+  }));
   api.use(express.json({ limit: '16kb', strict: true }));
 
   // What the UI shows about the deployment. The banner is set only in se-mock (hosted and simulated).
@@ -61,6 +67,11 @@ export function createApp({ service, workspaces = null, mode = 'local', health =
     provenance: 'The sidecar contract and gateway behaviour are as understood from the demo environment (reverse-engineered), UNVERIFIED against product documentation.',
     scenarios: req.rt.service.listScenarios(),
   }));
+  api.get('/h2', wrap(async (req, res) => res.json(await req.rt.service.h2())));
+  api.get('/rules', wrap(async (req, res) => res.json(await req.rt.service.getRules())));
+  api.delete('/rules', wrap(async (req, res) => res.json(await req.rt.service.clearRules())));
+  api.get('/prompt-log', (req, res) => res.json(req.rt.service.promptLogView()));
+  api.put('/prompt-log', wrap(async (req, res) => res.json(await req.rt.service.putPromptLog(req.body))));
   api.get('/stand-in', wrap(async (req, res) => res.json(await req.rt.service.standIn())));
 
   // Body: { scenario: "<id>" } or { custom: { requestText, upstreamText?, caller?, failClosed?, timeoutMs? } }
@@ -89,6 +100,7 @@ export function createApp({ service, workspaces = null, mode = 'local', health =
 
   api.use((_req, res) => bad(res, 'no such endpoint', 404));
   api.use((err, _req, res, _next) => {
+    if (err instanceof Refused) return bad(res, err.message, 400, { [err.key]: err.details });
     if (err instanceof Invalid) return bad(res, err.message);
     if (err instanceof QueueFull) return res.set('Retry-After', '2').status(429).json({ error: 'run_queue_full', message: 'runs are queued; try again shortly' });
     if (err instanceof SidecarDown) return res.status(503).json({ error: 'sidecar_unavailable', message: err.message });
