@@ -5,7 +5,7 @@ import { StandIn, Unverified } from "./Badges.jsx";
 const DESC = {
   prompt_injection: "Instruction overrides, prompt exfiltration, delimiter and hidden-character tricks.",
   jailbreak: "Persona switches and 'do anything' prompts. Alert only by default.",
-  pii: "SSN, card (Luhn), email, phone, IBAN-shaped. Regex only, no Presidio.",
+  pii: "The personal-data kinds switched on in the H2 2026 tab (the original five by default: SSN, card, IBAN, email, phone). Regex plus check digits, no Presidio.",
 };
 
 // Per-category block threshold sliders; the decision for the last run is recomputed live.

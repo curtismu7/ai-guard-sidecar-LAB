@@ -2,8 +2,11 @@
 // UNVERIFIED against product documentation), GET /health, GET/PUT /demo/config, GET/PUT /demo/fault.
 // Runs standalone (sidecar-main.js) or embedded in the main server. Always loopback.
 import express from 'express';
-import { DEFAULT_RAILS, ENGINE, RAILS, detectUnit } from './detectors.js';
-import { maskPii } from './pii.js';
+import { DEFAULT_RAILS, ENGINE, OPTIONAL_RAILS, RAILS, detectUnit } from './detectors.js';
+import { LEGACY_KINDS, PII_KIND_IDS } from './pii.js';
+import { SECRET_DETECTORS } from './secrets.js';
+import { RULE_LIMITS, TOML_LIMITS, importToml, summarise } from './rules.js';
+import { maskTyped } from './mask.js';
 import { redactText } from './redaction.js';
 import { revealText } from './sanitize.js';
 import { credentialGuard, hostGuard, isLoopbackHost, originGuard, portInRange } from './safety.js';
@@ -12,34 +15,45 @@ import { DEFAULT_WORKSPACE, WORKSPACE_RE } from './workspaces.js';
 // Set by the gateway on every call in MODE=se-mock, so the embedded sidecar keeps one state per visitor workspace.
 export const SIDECAR_WORKSPACE_HEADER = 'x-ai-guard-workspace';
 
-export const LIMITS = { bodyBytes: 64 * 1024, units: 32, textChars: 10000, roleChars: 64, configBytes: 2048, delayMaxMs: 10000, snippetChars: 200 };
+export const LIMITS = { bodyBytes: 64 * 1024, units: 32, textChars: 10000, roleChars: 64, configBytes: 2048, rulesBytes: 48 * 1024, delayMaxMs: 10000, snippetChars: 200 };
 export const DEFAULT_SIDECAR_CONFIG = Object.freeze({
   detector: { threshold: 0.9, benignLabels: ['benign', 'label_0', 'safe'] },
   rails: { ...DEFAULT_RAILS },
+  piiKinds: [...LEGACY_KINDS],
 });
+const TOML_BYTES = TOML_LIMITS.bytes;
 export const DEFAULT_FAULT = Object.freeze({ mode: 'none', delayMs: 0 });
 export const FAULT_MODES = ['none', 'error', 'timeout', 'slow'];
 
 const clone = (v) => structuredClone(v);
 export class Invalid extends Error {}
-const exactKeys = (obj, keys, what) => {
+// `optional` keys may be left out; any other key must be there, and no unknown key is allowed.
+const exactKeys = (obj, keys, what, optional = []) => {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Invalid(`${what} must be an object`);
-  const extra = Object.keys(obj).filter((k) => !keys.includes(k));
+  const extra = Object.keys(obj).filter((k) => !keys.includes(k) && !optional.includes(k));
   const missing = keys.filter((k) => !(k in obj));
-  if (extra.length || missing.length) throw new Invalid(`${what} must have exactly: ${keys.join(', ')}`);
+  if (extra.length || missing.length) throw new Invalid(`${what} must have exactly: ${keys.join(', ')}${optional.length ? ` (and optionally ${optional.join(', ')})` : ''}`);
 };
 
 export function validateSidecarConfig(v) {
-  exactKeys(v, ['detector', 'rails'], 'config');
+  exactKeys(v, ['detector', 'rails'], 'config', ['piiKinds']);
   exactKeys(v.detector, ['threshold', 'benignLabels'], 'detector');
   const { threshold, benignLabels } = v.detector;
   if (typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Invalid('threshold must be a number from 0 to 1');
   if (!Array.isArray(benignLabels) || benignLabels.length > 10 || !benignLabels.every((l) => typeof l === 'string' && /^[\w .-]{1,40}$/.test(l))) {
     throw new Invalid('benignLabels must be at most 10 labels of 1-40 letters, digits, space, dot, dash or underscore');
   }
-  exactKeys(v.rails, RAILS.map((r) => r.id), 'rails');
+  exactKeys(v.rails, RAILS.map((r) => r.id).filter((id) => !OPTIONAL_RAILS.includes(id)), 'rails', OPTIONAL_RAILS);
   if (!Object.values(v.rails).every((b) => typeof b === 'boolean')) throw new Invalid('each rail must be a boolean');
-  return { detector: { threshold, benignLabels: [...new Set(benignLabels.map((l) => l.toLowerCase()))] }, rails: { ...v.rails } };
+  // piiKinds (which personal-data kinds raise a finding): optional, each a known kind, no duplicates. Left out = unchanged.
+  let piiKinds;
+  if (v.piiKinds !== undefined) {
+    if (!Array.isArray(v.piiKinds) || v.piiKinds.length > PII_KIND_IDS.length || !v.piiKinds.every((k) => typeof k === 'string' && PII_KIND_IDS.includes(k)) || new Set(v.piiKinds).size !== v.piiKinds.length) {
+      throw new Invalid('piiKinds must be a list of distinct kinds from the catalogue (GET /demo/config shows it)');
+    }
+    piiKinds = PII_KIND_IDS.filter((k) => v.piiKinds.includes(k));
+  }
+  return { detector: { threshold, benignLabels: [...new Set(benignLabels.map((l) => l.toLowerCase()))] }, rails: { ...v.rails }, piiKinds };
 }
 
 export function validateFault(v) {
@@ -54,12 +68,14 @@ export function createSidecarState() {
   return {
     config: clone(DEFAULT_SIDECAR_CONFIG),
     fault: clone(DEFAULT_FAULT),
-    reset() { this.config = clone(DEFAULT_SIDECAR_CONFIG); this.fault = clone(DEFAULT_FAULT); },
+    rules: [], // your own pasted rules, compiled (rules.js); never part of config, so GET /demo/config stays small
+    reset() { this.config = clone(DEFAULT_SIDECAR_CONFIG); this.fault = clone(DEFAULT_FAULT); this.rules = []; },
   };
 }
 
-// What may leave the detector: PII masked, secret-looking strings redacted, hidden characters made visible, bounded.
-export const safeSnippet = (text, max = LIMITS.snippetChars) => revealText(redactText(maskPii(String(text ?? ''))).slice(0, max), max * 4);
+// What may leave the detector: PII, secrets and your own rules' matches masked (over the WHOLE text, then cut), secret-looking
+// strings redacted, hidden characters made visible, bounded. `rules` are the compiled pasted rules of the workspace.
+export const safeSnippet = (text, max = LIMITS.snippetChars, rules = []) => revealText(redactText(maskTyped(String(text ?? ''), rules)).slice(0, max), max * 4);
 
 // Validate and run one /inspect request body. Returns { findings }. Throws Invalid (400) or a size error (413).
 export function inspect(body, config) {
@@ -78,7 +94,7 @@ export function inspect(body, config) {
     if (text.length > LIMITS.textChars) throw Object.assign(new Invalid(`units[${index}].text is over ${LIMITS.textChars} characters`), { status: 413 });
     if (!text.trim()) return;
     for (const d of detectUnit({ role, direction, text }, config)) {
-      findings.push({ category: d.category, severity: d.severity, location: { index }, messages: [d.message], contents: [safeSnippet(text)] });
+      findings.push({ category: d.category, severity: d.severity, location: { index }, messages: [d.message], contents: [safeSnippet(text, undefined, config.rules)] });
     }
   });
   return { findings };
@@ -109,9 +125,25 @@ export function createSidecarApp(state = createSidecarState(), { log = () => {},
   app.get('/demo/config', (req, res) => sendConfig(res, stateOf(req)));
   app.put('/demo/config', json(LIMITS.configBytes), (req, res) => {
     const st = stateOf(req);
-    st.config = validateSidecarConfig(req.body);
+    const next = validateSidecarConfig(req.body);
+    // Left-out optional parts (piiKinds, the secrets rail) keep their current value.
+    st.config = { detector: next.detector, rails: { ...st.config.rails, ...next.rails }, piiKinds: next.piiKinds ?? st.config.piiKinds };
     sendConfig(res, st);
   });
+
+  // Your own gitleaks-format rules. One bad rule refuses the whole paste (400, nothing added).
+  const rulesView = (st) => ({ limits: { rulesPerWorkspace: RULE_LIMITS.rulesPerWorkspace, bytes: TOML_BYTES }, bundled: SECRET_DETECTORS.map((d) => ({ id: d.id, description: d.description })), custom: st.rules.map(summarise) });
+  app.get('/demo/rules', (req, res) => res.json(rulesView(stateOf(req))));
+  app.put('/demo/rules', json(LIMITS.rulesBytes), (req, res) => {
+    const st = stateOf(req);
+    exactKeys(req.body, ['toml'], 'body');
+    if (typeof req.body.toml !== 'string') throw new Invalid('toml must be a string');
+    const r = importToml(req.body.toml, st.rules);
+    if (r.Errors.length) return res.status(400).json({ error: 'rules_refused', message: 'the whole paste was refused: nothing was added', Errors: r.Errors });
+    st.rules = [...st.rules, ...r.Added];
+    return res.json({ Added: r.Added.map(summarise), Errors: [] });
+  });
+  app.delete('/demo/rules', (req, res) => { stateOf(req).rules = []; res.json({ ok: true }); });
   app.get('/demo/fault', (req, res) => res.json({ fault: stateOf(req).fault, modes: FAULT_MODES }));
   app.put('/demo/fault', json(LIMITS.configBytes), (req, res) => {
     const st = stateOf(req);
@@ -123,7 +155,7 @@ export function createSidecarApp(state = createSidecarState(), { log = () => {},
     const st = stateOf(req);
     const respond = () => {
       let result;
-      try { result = inspect(req.body, st.config); } catch (e) {
+      try { result = inspect(req.body, { ...st.config, rules: st.rules }); } catch (e) {
         if (e instanceof Invalid) return res.status(e.status || 400).json({ error: e.status === 413 ? 'payload_too_large' : 'bad_request', message: e.message });
         log('inspect_failed');
         return res.status(502).json({ error: 'inspect_failed' });

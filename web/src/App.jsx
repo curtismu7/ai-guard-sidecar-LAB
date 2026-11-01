@@ -12,6 +12,8 @@ import StandInPanel from "./components/StandInPanel.jsx";
 import Log from "./components/Log.jsx";
 import Inert from "./components/Inert.jsx";
 import HostedBanner from "./components/HostedBanner.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import H2Tab from "./components/H2Tab.jsx";
 
 const THEME_KEY = "ai-guard-theme";
 const readTheme = () => {
@@ -19,6 +21,9 @@ const readTheme = () => {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 };
 const MAX_TEXT = 4000;
+// The release banner: every product claim about the H2 2026 release is Ping's, and not checked on our tenant.
+const RELEASE_BANNER = "Ping release claim, UNVERIFIED on our tenant";
+const TABS = [["demo", "Sidecar demo"], ["h2", "H2 2026 release"]];
 
 export default function App() {
   const [theme, setTheme] = useState(readTheme);
@@ -37,6 +42,10 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState(null);
+  const [tab, setTab] = useState("demo");
+  // Private keys made in the H2 tab live here, in memory only, so switching tabs does not lose them. Never sent, stored or logged.
+  const [keyring, setKeyring] = useState([]);
+  const [resetKey, setResetKey] = useState(0);
   const saveTimer = useRef(null);
   const latest = useRef({});
 
@@ -78,6 +87,8 @@ export default function App() {
   const onThreshold = (cat, level) => scheduleSave("gateway", { gateway: { ...gw, blockThresholds: { ...thresholds, [cat]: level } } });
   const onFailClosed = (v) => scheduleSave("gateway", { gateway: { ...gw, failClosed: v } });
   const onDetector = (d) => scheduleSave("sidecar", { sidecar: { ...config.sidecar, detector: d } });
+  const onPiiKinds = (piiKinds) => scheduleSave("sidecar", { sidecar: { ...config.sidecar, piiKinds } });
+  const onSecretsRail = (secrets) => scheduleSave("sidecar", { sidecar: { ...config.sidecar, rails: { ...config.sidecar.rails, secrets } } });
   const onFault = async (f) => {
     setError(""); setFault(f);
     try { const r = await api.putFault(f); setFault(r.fault); } catch (e) { fail(e); loadConfig(); }
@@ -119,6 +130,7 @@ export default function App() {
     await api.postReset();
     setResult(null); setCompare(null); setStatus("Reset: defaults restored, no fault, empty log.");
     await loadConfig(); await refreshStandIn();
+    setResetKey((k) => k + 1);
   });
   const doReset = () => { reset(); };
 
@@ -141,6 +153,14 @@ export default function App() {
         </div>
       </header>
       <main id="main" tabIndex={-1}>
+        <p role="note" className="release-banner" data-testid="release-banner">{RELEASE_BANNER}</p>
+        <div className="view-tabs" role="tablist" aria-label="Views">
+          {TABS.map(([id, label]) => (
+            <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls={`panel-${id}`} className={`btn ${tab === id ? "primary" : ""}`} onClick={() => setTab(id)} data-testid={`tab-${id}`}>{label}</button>
+          ))}
+        </div>
+        <div role="tabpanel" id="panel-demo" aria-labelledby="tab-demo" hidden={tab !== "demo"}>
+        <ErrorBoundary resetKey={`${tab}-demo`}>
         <p className="lede">How an external guardrail sidecar plugs into an agent gateway. A mock gateway sends text to a stand-in sidecar over loopback HTTP and applies its answer. Pick a scenario, press Simulate, then change the thresholds or break the sidecar.</p>
         <Story />
         {error && <p role="alert" className="error" data-testid="error">{error}</p>}
@@ -218,6 +238,15 @@ export default function App() {
 
         <Log decisions={decisions} />
         <footer className="foot">Demo only. Loopback only. No model, no network. The /inspect contract and gateway behaviour are as understood from the demo environment, UNVERIFIED against product documentation, and nothing here says anything about real product detection quality, defaults or licensing.</footer>
+        </ErrorBoundary>
+        </div>
+        <div role="tabpanel" id="panel-h2" aria-labelledby="tab-h2" hidden={tab !== "h2"}>
+          {tab === "h2" && (
+            <ErrorBoundary resetKey={`${tab}-h2`}>
+              <H2Tab config={config} onPiiKinds={onPiiKinds} onSecretsRail={onSecretsRail} thresholds={thresholds} failClosed={failClosed} keyring={keyring} setKeyring={setKeyring} resetKey={resetKey} onRan={refreshDecisions} />
+            </ErrorBoundary>
+          )}
+        </div>
       </main>
     </>
   );

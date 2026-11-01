@@ -56,7 +56,8 @@ export default function Diagram({ steps, runKey, theme, onSimulate, onReset, bus
   useEffect(() => {
     const el = box.current;
     if (!el || typeof ResizeObserver === "undefined") return undefined;
-    const ro = new ResizeObserver(() => { setCompact(el.clientWidth > 0 && el.clientWidth < 600); refit(); });
+    // A hidden tab measures 0 wide: keep the layout (and any dragged positions) until it is shown again.
+    const ro = new ResizeObserver(() => { if (el.clientWidth === 0) return; setCompact(el.clientWidth < 600); refit(); });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

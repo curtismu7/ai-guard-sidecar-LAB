@@ -57,12 +57,12 @@ export function findingBlocks(finding, thresholds) {
 }
 
 // The sidecar is untrusted input to the gateway: shape-check it, bound it, make every string inert and PII-safe.
-export function sanitizeFindings(raw) {
+export function sanitizeFindings(raw, rules = []) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.findings) || raw.findings.length > MAX_FINDINGS) throw new Error('bad shape');
   return raw.findings.map((f) => {
     const idx = f?.location?.index;
     if (!f || typeof f !== 'object' || typeof f.category !== 'string' || typeof f.severity !== 'string' || !Number.isInteger(idx) || idx < 0) throw new Error('bad finding');
-    const strs = (a) => (Array.isArray(a) ? a.slice(0, 5).filter((s) => typeof s === 'string').map((s) => safeSnippet(s, 300)) : []);
+    const strs = (a) => (Array.isArray(a) ? a.slice(0, 5).filter((s) => typeof s === 'string').map((s) => safeSnippet(s, 300, rules)) : []);
     return {
       category: revealText(f.category, 64),
       severity: ['low', 'medium', 'high'].includes(f.severity) ? f.severity : 'unknown',
@@ -88,7 +88,7 @@ async function readBounded(res) {
 // The exact /inspect request body the gateway sends (also used by the UI viewer, with the text made safe first).
 export const inspectBody = (units) => ({ tenant: 'demo-tenant', user: 'demo-user', app_name: 'mock-gateway', units });
 
-export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis.fetch, extraHeaders = {}) {
+export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis.fetch, extraHeaders = {}, rules = []) {
   const started = Date.now();
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
@@ -102,7 +102,7 @@ export async function callSidecar(base, units, timeoutMs, fetchImpl = globalThis
     });
     if (res.status !== 200) { await res.body?.cancel?.().catch(() => {}); return done({ ok: false, status: res.status, error: `sidecar_http_${res.status}` }); }
     let findings;
-    try { findings = sanitizeFindings(JSON.parse(await readBounded(res))); } catch { return done({ ok: false, status: 200, error: 'sidecar_bad_response' }); }
+    try { findings = sanitizeFindings(JSON.parse(await readBounded(res)), rules); } catch { return done({ ok: false, status: 200, error: 'sidecar_bad_response' }); }
     return done({ ok: true, status: 200, findings });
   } catch (e) {
     return done({ ok: false, status: null, error: ctl.signal.aborted ? 'sidecar_timeout' : 'sidecar_unreachable' });
@@ -131,21 +131,23 @@ export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch, worksp
   const base = assertSidecarUrl(sidecarUrl);
   if (workspace !== undefined && !WORKSPACE_RE.test(workspace)) throw new Error('invalid workspace id');
   const wsHeaders = workspace === undefined ? {} : { [SIDECAR_WORKSPACE_HEADER]: workspace };
+  // The visitor's own pasted rules (compiled), so text shown back is masked by them too. Set by the service after a paste.
+  let maskRules = [];
 
   async function inspectStage(stage, unit, policy) {
-    const call = await callSidecar(base, [unit], policy.timeoutMs, fetchImpl, wsHeaders);
+    const call = await callSidecar(base, [unit], policy.timeoutMs, fetchImpl, wsHeaders, maskRules);
     const d = decide(call, policy);
     // What the teaching viewer shows: the request body as sent, and the answer in contract shape. Both are display
     // copies: text is masked and made inert, the sidecar answer was sanitised by callSidecar.
     const exchange = {
-      request: inspectBody([{ role: revealText(unit.role, 64), direction: unit.direction, text: safeSnippet(unit.text, 300) }]),
+      request: inspectBody([{ role: revealText(unit.role, 64), direction: unit.direction, text: safeSnippet(unit.text, 300, maskRules) }]),
       response: call.ok
         ? { status: 200, body: { findings: call.findings.map((f) => ({ category: f.category, severity: f.severity, location: { index: f.index }, messages: f.messages, contents: f.contents })) } }
         : { status: call.status, error: call.error },
     };
     return {
       stage,
-      unit: { role: revealText(unit.role, 64), direction: unit.direction, chars: unit.text.length, text: safeSnippet(unit.text, 300) },
+      unit: { role: revealText(unit.role, 64), direction: unit.direction, chars: unit.text.length, text: safeSnippet(unit.text, 300, maskRules) },
       sidecar: { ok: call.ok, status: call.status, latencyMs: call.latencyMs, error: call.error ?? null },
       exchange,
       ...d,
@@ -180,5 +182,5 @@ export function createGateway({ sidecarUrl, fetchImpl = globalThis.fetch, worksp
     return { status: res.status, json };
   }
 
-  return { base, run, admin };
+  return { base, run, admin, setMaskRules: (r) => { maskRules = r; } };
 }

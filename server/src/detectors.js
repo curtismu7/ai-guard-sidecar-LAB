@@ -2,7 +2,9 @@
 // offline. They are NOT a prompt-injection classifier and say nothing about how any real classifier performs: detection
 // quality is a property of the model you deploy, and these rules are weak on purpose (see STAND_IN_LIMITS).
 import { hasInvisible, normalizeForDetection } from './sanitize.js';
-import { findPii } from './pii.js';
+import { LEGACY_KINDS, findPii } from './pii.js';
+import { detectSecrets } from './secrets.js';
+import { fold } from './fold.js';
 
 export const ENGINE = 'stand-in-heuristics';
 
@@ -19,6 +21,7 @@ const RULES = [
   { id: 'do-anything-now', label: 'JAILBREAK', weight: 0.95, re: /\bdo anything now\b|\bdeveloper mode\b/i },
 ];
 
+export const STAND_IN_RULE_COUNT = RULES.length;
 const round2 = (n) => Math.round(n * 100) / 100;
 
 // The stand-in "classifier": label scores like a text-classification pipeline (INJECTION, JAILBREAK, SAFE).
@@ -59,9 +62,16 @@ export const severityRank = (s) => RANK[s] ?? 0;
 // Rails: which detectors run, on which directions. Both rails look at request and response text.
 export const RAILS = [
   { id: 'injection', label: 'Prompt injection (stand-in heuristics)', directions: ['request', 'response'] },
-  { id: 'regex_pii', label: 'PII patterns (regex + Luhn / mod 97)', directions: ['request', 'response'] },
+  { id: 'regex_pii', label: 'PII patterns (regex + check digits, kinds selectable)', directions: ['request', 'response'] },
+  { id: 'secrets', label: 'Secret detectors (bundled examples, off by default)', directions: ['request', 'response'] },
 ];
-export const DEFAULT_RAILS = { injection: true, regex_pii: true };
+// Rails a PUT may leave out (they keep their current value): the ones added after the first release of the contract.
+export const OPTIONAL_RAILS = ['secrets'];
+export const SECRETS_CATEGORY = 'secrets';
+// The gateway has no slider for this category, so it blocks at the demo's unknown-category threshold (high): a rule's severity decides.
+// secrets: the bundled secret detectors (secrets.js), off by default so the original demo behaves as before. Your own pasted rules
+// (cfg.rules) run whenever there are any: pasting them is the opt-in.
+export const DEFAULT_RAILS = { injection: true, regex_pii: true, secrets: false };
 
 // One unit -> raw detections (before they are shaped into findings): [{ category, severity, message, score? }]
 export function detectUnit(unit, cfg) {
@@ -73,13 +83,22 @@ export function detectUnit(unit, cfg) {
       out.push({ category: categoryFor(h.label), severity: severityForScore(h.score), message: `Stand-in detector flagged ${h.label} (${h.score.toFixed(2)}); rules: ${r.matched.join(', ')}` });
     }
   }
+  const folded = fold(normalizeForDetection(text)).norm;
   if (cfg.rails.regex_pii) {
-    const spans = findPii(normalizeForDetection(text));
+    const spans = findPii(folded, cfg.piiKinds ?? LEGACY_KINDS);
     if (spans.length) {
       const kinds = [...new Set(spans.map((s) => s.kind))];
       const severity = spans.some((s) => s.severity === 'high') ? 'high' : 'medium';
       out.push({ category: 'pii', severity, message: `PII rail (regex) flagged ${kinds.join(', ')}` });
     }
+  }
+  if (cfg.rails.secrets) {
+    const hits = [...new Set(detectSecrets(folded).map((h) => h.rule))];
+    if (hits.length) out.push({ category: SECRETS_CATEGORY, severity: 'high', message: `Secret detector flagged ${hits.join(', ')}` });
+  }
+  // One finding per pasted rule that matched, at the severity the rule declares (critical counts as high in the contract).
+  for (const r of cfg.rules ?? []) {
+    if (r.spansOf(text).length) out.push({ category: r.category, severity: r.severity === 'critical' ? 'high' : r.severity, message: `Your rule ${r.id} matched` });
   }
   return out;
 }

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- H2 2026 release updates (Ping release claims, UNVERIFIED on our tenant): a second tab with selectable personal-data kinds (the app's own set of 11, each with a check digit proved live), twelve bundled secret detectors (off by default), your own gitleaks-format rules (one bad rule refuses the whole paste; bounded parser, static regex check, V8 linear-time fallback), and prompt logging sealed to an X25519 key the page holds. Ping's figures are quoted from the deck and never shown as the app's. Release banner and per-field claim tags on both tabs; render guard around each tab; talk track generated with a drift test; content pack gains six terms and three cards. The original behaviour is unchanged by default.
+- Masking: NFKC and default-ignorable/format-character folding, three rounds of percent-decoding, plain-language secrets, mask before truncating; errors no longer echo an unknown field name.
+- No `Non-Human Identity` text exists in this repo, so the Federated Identity display rename changes nothing here.
+
+## Unreleased
+
 - k8s: mock-only SE build (rule 18). `MODE=local` (default) or `MODE=se-mock`: live features (external sidecar URL, standalone sidecar port) are refused at startup and by the doctor; the standalone sidecar and `.env` are not used in se-mock. Per-visitor workspaces (`X-Workspace-Id`, strict id, cap of 50, 30-minute TTL) hold each visitor's gateway config, fault injector, decision log and run queue; the embedded sidecar keeps one state per workspace. `GET /api/info` gives the hosted banner; `/api/health` (`demo-health/1`) reports the mode. Manifests (probes, non-root, read-only root, dropped capabilities, no privileged, no hostPath), `k8s/deploy.sh` (needs `OWNER_APPROVED=1`, nothing deployed), `scripts/k8s.test.mjs`, `docs/k8s.md`. Server tests run one file at a time (`--test-concurrency=1`) so port slices cannot collide.
 
 ## 0.1.0

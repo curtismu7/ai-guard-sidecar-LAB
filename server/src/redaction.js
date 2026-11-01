@@ -41,6 +41,8 @@ export function redactText(value) {
     .replace(new RegExp(`\\b(${NAME})(=)(?!\\[REDACTED\\])${VALUE}`, 'gi'), `$1$2${MARK}`)
     .replace(new RegExp(`\\b(${NAME})(["']?\\s*:\\s*)(?!["']?\\[REDACTED\\])${VALUE}`, 'gi'), `$1$2${MARK}`)
     .replace(/\b(Proxy-)?Authorization(\s*:\s*)(?!(?:(?:Bearer|Basic)\s+)?\[REDACTED\])[^\s][^\r\n]*/gi, `$1Authorization$2${MARK}`)
+    // Plain language: "my password is hunter22", "pw: abc123", "the passcode = xyz".
+    .replace(/\b((?:my|the|our|your)\s+)?(passw(?:or)?d|passcode|passphrase|pwd|pw|pin)(\s*(?:is|=|:)\s*)(?!\[REDACTED\])("[^"]*"|'[^']*'|[^\s,;]+)/gi, `$1$2$3${MARK}`)
     .replace(/\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g, MARK)
     .replace(/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, MARK)
     .replace(/\b(?:sk|pk|ghp|gho|xox[bap])[-_][A-Za-z0-9_-]{16,}/g, MARK);
