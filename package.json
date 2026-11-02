@@ -10,19 +10,20 @@
     "web"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=26"
   },
   "scripts": {
     "start": "npm start -w server",
     "sidecar": "npm run sidecar -w server",
-    "test": "npm test -w server && npm test -w web && node --test scripts/compose.test.mjs scripts/docs.test.mjs scripts/content-pack.test.mjs scripts/shelf-entry.test.mjs scripts/k8s.test.mjs scripts/doctor.test.mjs scripts/talk-track.test.mjs",
+    "test": "npm test -w server && npm test -w web && node --test scripts/compose.test.mjs scripts/docs.test.mjs scripts/content-pack.test.mjs scripts/shelf-entry.test.mjs scripts/k8s.test.mjs scripts/doctor.test.mjs scripts/talk-track.test.mjs scripts/check-forbidden-strings.test.mjs",
     "doctor": "node scripts/doctor.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
     "e2e": "node scripts/e2e.mjs",
     "content-pack": "node scripts/build-content-pack.mjs && node scripts/validate-content-pack.mjs",
-    "talk-track": "node scripts/build-talk-track.mjs"
+    "talk-track": "node scripts/build-talk-track.mjs",
+    "check:forbidden": "node scripts/check-forbidden-strings.mjs"
   },
   "devDependencies": {
     "ajv": "^8.20.0",
