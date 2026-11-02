@@ -9,8 +9,6 @@ permissions:
 
 jobs:
   build:
-    # GitHub-hosted runner, Node 26 only (owner rule 2026-10-31). The mirrored workflow targeted a self-hosted macOS runner
-    # that does not exist in this org, so no check ever ran.
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,6 +22,24 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+  forbidden-strings:
+    # Fails if a tracked file holds a string from the forbidden-strings list (one per line), an unlisted UUID in docs,
+    # or an unlisted private hostname. The list comes from the FORBIDDEN_STRINGS repo secret (docs/forbidden-strings.md).
+    # With no secret the script exits 1 under CI=true, so this cannot be skipped. Only counts are printed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - env:
+          FORBIDDEN_STRINGS: ${{ secrets.FORBIDDEN_STRINGS }}
+        run: |
+          if [ -n "$FORBIDDEN_STRINGS" ]; then
+            printf '%s\n' "$FORBIDDEN_STRINGS" > "$RUNNER_TEMP/forbidden-strings.txt"
+            export FORBIDDEN_STRINGS_FILE="$RUNNER_TEMP/forbidden-strings.txt"
+          fi
+          npm run check:forbidden
   gitleaks:
     # Fails the PR if any commit in its history contains a secret.
     runs-on: ubuntu-latest
