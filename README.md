@@ -15,7 +15,7 @@ Steps AG0 (server core), AG1 (web UI), AG2 (fix pass) and AG3 (packaging) are bu
 
 ## Run it
 
-Needs Node 20 or newer. Ports are all in 6500-6549.
+Needs Node 26 or newer. Ports are all in 6500-6549.
 
 ```sh
 npm install
