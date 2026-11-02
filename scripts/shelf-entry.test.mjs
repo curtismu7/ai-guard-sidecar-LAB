@@ -23,7 +23,7 @@ test('the entry matches this app: id, catalog D12, port 6500, /api/health, compo
 });
 
 test('the copied rules reject a bad entry', () => {
-  const bad = [{ ...entry.demos[0], url: 'http://evil.example:6500', healthPath: '//x', composeFile: 'relative.yml' }];
+  const bad = [{ ...entry.demos[0], url: 'http://evil.example:6500', healthPath: '//x', composeFile: '../relative.yml' }];
   assert.ok(shelfProblems(bad).length >= 3);
   assert.ok(shelfProblems([{ ...entry.demos[0], where: 'both' }]).length >= 1, 'where=both needs hostedUrl');
 });
