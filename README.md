@@ -1,6 +1,8 @@
-# AI Guard Sidecar
+# AI Guard Sidecar LAB
 
 A small, offline demo of how an **external guardrail sidecar** plugs into an agent gateway. A mock gateway sends the text of an agent or LLM request, and of the model's response, to a sidecar's `/inspect` endpoint. An empty findings list means allow. A finding at or above its category's block threshold means block. If the sidecar fails, a "fail closed" toggle decides between blocking and allowing. You can watch each of those decisions, break the sidecar on purpose, and change the thresholds.
+
+Repo: https://github.com/ping-sandbox/ai-guard-sidecar-LAB
 
 ## Read this first: what is and is not claimed
 
