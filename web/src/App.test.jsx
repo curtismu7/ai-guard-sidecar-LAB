@@ -36,6 +36,7 @@ beforeEach(() => {
     if (url === "/api/config" && method === "GET") return ok(CONFIG);
     if (url === "/api/config") return ok(CONFIG);
     if (url === "/api/info") return ok(INFO);
+    if (url === "/api/mode") { INFO = { ...INFO, source: body.source }; return ok(INFO); }
     if (url === "/api/stand-in") return ok(STAND_IN);
     if (url === "/api/decisions") return ok({ count: 0, decisions: [] });
     if (url === "/api/fault") return ok({ fault: body });
@@ -74,6 +75,38 @@ describe("App", () => {
     expect(within(badges).getByText("STAND-IN")).toBeInTheDocument();
     expect(within(badges).getByText("UNVERIFIED")).toBeInTheDocument();
     expect(screen.getAllByText(/UNVERIFIED against product documentation/).length).toBeGreaterThan(0);
+  });
+
+  it("offers only Mock when no external sidecar is configured, and says how to enable Real", async () => {
+    INFO = { mode: "local", hosted: false, banner: null, source: "mock", realAvailable: false };
+    await ready();
+    expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mode-real")).toBeDisabled();
+    expect(screen.getByTestId("mode-real")).toHaveAttribute("title", expect.stringMatching(/AI_GUARD_SIDECAR_URL/));
+    INFO = { mode: "local", hosted: false, banner: null };
+  });
+
+  it("switches between Mock and Real, tells the server, and loads the data again", async () => {
+    INFO = { mode: "local", hosted: false, banner: null, source: "real", realAvailable: true };
+    await ready();
+    expect(screen.getByTestId("mode-real")).toHaveAttribute("aria-pressed", "true");
+    const before = calls.filter((c) => c.url === "/api/scenarios").length;
+    fireEvent.click(screen.getByTestId("mode-mock"));
+    await waitFor(() => expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true"));
+    expect(calls.find((c) => c.url === "/api/mode").body).toEqual({ source: "mock" });
+    expect(calls.filter((c) => c.url === "/api/scenarios").length).toBeGreaterThan(before);
+    fireEvent.click(screen.getByTestId("mode-real"));
+    await waitFor(() => expect(screen.getByTestId("mode-real")).toHaveAttribute("aria-pressed", "true"));
+    INFO = { mode: "local", hosted: false, banner: null };
+  });
+
+  it("shows Mock pressed and Real disabled in the hosted build", async () => {
+    INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic.", source: "mock", realAvailable: false };
+    await ready();
+    expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mode-real")).toBeDisabled();
+    expect(screen.getByTestId("mode-real")).toHaveAttribute("title", "The hosted build is Mock only.");
+    INFO = { mode: "local", hosted: false, banner: null };
   });
 
   it("runs a scenario and shows the exact /inspect exchange, findings and decision", async () => {
