@@ -3,6 +3,7 @@ import * as api from "./lib/api.js";
 import { buildSteps } from "./lib/model.js";
 import { Demo, StandIn, Unverified } from "./components/Badges.jsx";
 import Story from "./components/Story.jsx";
+import ModeToggle from "./components/ModeToggle.jsx";
 import Diagram from "./components/Diagram.jsx";
 import Exchange from "./components/Exchange.jsx";
 import Findings from "./components/Findings.jsx";
@@ -64,6 +65,17 @@ export default function App() {
     loadConfig(); refreshStandIn(); refreshDecisions();
     api.getInfo().then(setInfo).catch(() => setInfo(null));
   }, [loadConfig, refreshStandIn, refreshDecisions]);
+
+  // Switching Mock/Real changes which sidecar every call goes to, so everything shown is loaded again.
+  const onSelectMode = async (source) => {
+    setError("");
+    try {
+      setInfo(await api.setMode(source));
+      setResult(null); setCompare(null);
+      api.getScenarios().then((r) => setScenarios(r.scenarios)).catch(fail);
+      loadConfig(); refreshStandIn(); refreshDecisions();
+    } catch (e) { fail(e); }
+  };
 
   const gw = config?.gateway;
   const thresholds = gw?.blockThresholds ?? { prompt_injection: "medium", jailbreak: "none", pii: "high" };
@@ -149,6 +161,7 @@ export default function App() {
         <div className="top-in">
           <h1>AI Guard Sidecar</h1>
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
+          <ModeToggle info={info} onSelect={onSelectMode} />
           <button type="button" className="btn theme" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>{theme === "dark" ? "Light" : "Dark"} theme</button>
         </div>
       </header>

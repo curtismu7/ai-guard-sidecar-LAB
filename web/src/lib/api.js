@@ -18,6 +18,7 @@ async function call(path, method = "GET", body) {
 }
 
 export const getInfo = () => call("/api/info");
+export const setMode = (source) => call("/api/mode", "POST", { source });
 export const getScenarios = () => call("/api/scenarios");
 export const getConfig = () => call("/api/config");
 export const putConfig = (body) => call("/api/config", "PUT", body);

@@ -25,9 +25,12 @@ export const UI_CSP = "default-src 'self'; script-src 'self'; style-src 'self' '
 // webDist: directory with the built UI (web/dist). null disables static serving; a missing directory leaves / a JSON 404.
 // mode 'local' (default): one service, the header is ignored. mode 'se-mock': `workspaces` (a registry from
 // createWorkspaces) gives each X-Workspace-Id its own runtime, and a malformed id is refused with 400.
-export function createApp({ service, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null } = {}) {
+export function createApp({ service, realService = null, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null } = {}) {
   const seMock = mode === 'se-mock';
-  const registry = workspaces ?? { get: () => ({ service }) };
+  // Local mode: Mock is the embedded stand-in sidecar; Real is the external sidecar, present only when AI_GUARD_SIDECAR_URL is set.
+  // The default is Real when it exists (as before), else Mock. The hosted build is Mock only and cannot be switched.
+  const modeState = { source: realService ? 'real' : 'mock' };
+  const registry = workspaces ?? { get: () => ({ service: modeState.source === 'real' ? realService : service }) };
   const app = express();
   app.disable('x-powered-by');
   app.use(hostGuard);
@@ -61,7 +64,17 @@ export function createApp({ service, workspaces = null, mode = 'local', health =
   api.use(express.json({ limit: '16kb', strict: true }));
 
   // What the UI shows about the deployment. The banner is set only in se-mock (hosted and simulated).
-  api.get('/info', (req, res) => res.json({ mode: seMock ? 'se-mock' : 'local', hosted: seMock, simulated: true, workspace: req.workspaceId, banner: seMock ? SE_MOCK_BANNER : null }));
+  const infoBody = (req) => ({ mode: seMock ? 'se-mock' : 'local', hosted: seMock, simulated: true, workspace: req.workspaceId, banner: seMock ? SE_MOCK_BANNER : null, source: seMock ? 'mock' : modeState.source, realAvailable: !seMock && !!realService });
+  api.get('/info', (req, res) => res.json(infoBody(req)));
+  // The Mock/Real toggle. Body is exactly {source: "mock" | "real"}. The hosted build is fail-closed Mock; Real needs a configured sidecar.
+  api.post('/mode', (req, res) => {
+    const b = req.body;
+    if (!b || typeof b !== 'object' || Array.isArray(b) || Object.keys(b).length !== 1 || !['mock', 'real'].includes(b.source)) return bad(res, 'body must be exactly {source: "mock" or "real"}');
+    if (seMock) return bad(res, 'The hosted build is Mock only and cannot be switched.', 403);
+    if (b.source === 'real' && !realService) return bad(res, 'Real needs AI_GUARD_SIDECAR_URL: start the server with it set to an AI Guard sidecar, then switch.', 409);
+    modeState.source = b.source;
+    return res.json(infoBody(req));
+  });
 
   api.get('/scenarios', (req, res) => res.json({
     provenance: 'The sidecar contract and gateway behaviour are as understood from the demo environment (reverse-engineered), UNVERIFIED against product documentation.',
@@ -130,12 +143,14 @@ export async function startHttpServer({ port = serverPort(), host = bindHost(), 
     return startSeMockServer({ port, host, env, embeddedPort, webDist, publicOrigin });
   }
   if (sidecarUrl) assertSidecarUrl(sidecarUrl);
-  const embedded = sidecarUrl ? null : await startSidecar({ port: embeddedPort });
-  const service = given || createService({ sidecarUrl: sidecarUrl || embedded.url });
+  const embedded = await startSidecar({ port: embeddedPort }); // always: the Mock side
+  const mockService = given || createService({ sidecarUrl: embedded.url });
+  const realService = sidecarUrl ? createService({ sidecarUrl }) : null;
+  const service = realService ?? mockService;
   const probe = async () => { try { return (await service.gateway.admin('GET', '/health')).status === 200; } catch { return false; } };
   const health = createHealth({ env, probe });
   await health.ready;
-  return listen({ port, host, app: createApp({ service, health, mode, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: service.gateway.base });
+  return listen({ port, host, app: createApp({ service: mockService, realService, health, mode, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: service.gateway.base });
 }
 
 // MODE=se-mock: the embedded sidecar keeps one state per workspace, and every workspace gets its own service (config,

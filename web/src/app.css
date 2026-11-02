@@ -124,3 +124,7 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 .stack > .card { margin-bottom: 0; }
 .badge-tag { cursor: help; }
 .stack .badges { gap: 4px; }
+.mode-toggle { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.mode-toggle button { border: 0; border-radius: 0; padding: 3px 12px; background: var(--surface-2); color: var(--text); font-size: var(--font-size-sm); cursor: default; }
+.mode-toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.mode-toggle button:disabled { opacity: 0.6; }
