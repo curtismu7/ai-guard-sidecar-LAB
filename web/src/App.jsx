@@ -3,6 +3,7 @@ import * as api from "./lib/api.js";
 import { buildSteps } from "./lib/model.js";
 import { Demo, StandIn, Unverified } from "./components/Badges.jsx";
 import Story from "./components/Story.jsx";
+import { setPresenter, initPresenter, presenterOn } from "./presenter.js";
 import ModeToggle from "./components/ModeToggle.jsx";
 import Diagram from "./components/Diagram.jsx";
 import Exchange from "./components/Exchange.jsx";
@@ -162,6 +163,7 @@ export default function App() {
           <h1>AI Guard Sidecar</h1>
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <ModeToggle info={info} onSelect={onSelectMode} />
+          <button type="button" className="btn" aria-pressed={presenterOn()} onClick={() => setPresenter(!presenterOn())}>Present</button>
           <button type="button" className="btn theme" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>{theme === "dark" ? "Light" : "Dark"} theme</button>
         </div>
       </header>
