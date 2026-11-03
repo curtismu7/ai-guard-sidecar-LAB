@@ -8,7 +8,7 @@
       "description": "How an external guardrail sidecar plugs into an agent gateway: a stand-in detector, per-category block thresholds, PII rails, a fail-closed toggle and a fault injector. Contract unverified; offline.",
       "url": "http://localhost:6500",
       "healthPath": "/api/health",
-      "composeFile": "/Users/cmuir/Development/ai-guard-sidecar/docker-compose.yml",
+      "composeFile": "ai-guard-sidecar-LAB/docker-compose.yml",
       "composeOverlays": [],
       "notes": "Host-run: npm install && npm run build && npm start (port 6500; npm run doctor checks it). Or: docker compose up --build -d (publishes 127.0.0.1:6500 only; the standalone sidecar on 6501 is host-run only and not in the image; HOST_PORT changes the published port, and the shelf's Start button does not set HOST_PORT). Edit composeFile to this checkout's absolute path."
     }
