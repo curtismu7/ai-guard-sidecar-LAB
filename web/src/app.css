@@ -128,3 +128,7 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 .mode-toggle button { border: 0; border-radius: 0; padding: 3px 12px; background: var(--surface-2); color: var(--text); font-size: 0.85rem; cursor: default; }
 .mode-toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .mode-toggle button:disabled { opacity: 0.6; }
+
+/* Presenter mode: the chrome steps back and the text grows. */
+:root[data-presenter="on"] body { font-size: 20px; }
+:root[data-presenter="on"] .top .btn.theme { display: none; }
