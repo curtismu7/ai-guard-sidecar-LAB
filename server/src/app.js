@@ -8,6 +8,7 @@ import express from 'express';
 import { createHealth } from './health.js';
 import { Invalid, QueueFull, Refused, SidecarDown, createService } from './service.js';
 import { assertBindAllowed, assertSidecarUrl, bindHost, credentialGuard, embeddedSidecarPort, hostGuard, makeOriginGuard, portInRange, serverPort } from './safety.js';
+import { loadCustomer, DEFAULT_CUSTOMER } from './customer.js';
 import { startSidecar, createSidecarState } from './sidecar.js';
 import { SE_MOCK_BANNER, modeFrom, publicOriginFrom, refusedFlagsSet } from './config.js';
 import { DEFAULT_WORKSPACE, WORKSPACE_HEADER, WORKSPACE_RE, createWorkspaces } from './workspaces.js';
@@ -25,7 +26,7 @@ export const UI_CSP = "default-src 'self'; script-src 'self'; style-src 'self' '
 // webDist: directory with the built UI (web/dist). null disables static serving; a missing directory leaves / a JSON 404.
 // mode 'local' (default): one service, the header is ignored. mode 'se-mock': `workspaces` (a registry from
 // createWorkspaces) gives each X-Workspace-Id its own runtime, and a malformed id is refused with 400.
-export function createApp({ service, realService = null, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null } = {}) {
+export function createApp({ service, realService = null, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null, customer = loadCustomer() } = {}) {
   const seMock = mode === 'se-mock';
   // Local mode: Mock is the embedded stand-in sidecar; Real is the external sidecar, present only when AI_GUARD_SIDECAR_URL is set.
   // The default is Real when it exists (as before), else Mock. The hosted build is Mock only and cannot be switched.
@@ -101,7 +102,7 @@ export function createApp({ service, realService = null, workspaces = null, mode
   }));
 
   api.get('/decisions', (req, res) => { const decisions = req.rt.service.decisionList(); res.json({ count: decisions.length, decisions }); });
-  api.get('/config', wrap(async (req, res) => res.json(await req.rt.service.getFullConfig())));
+  api.get('/config', wrap(async (req, res) => res.json({ ...(await req.rt.service.getFullConfig()), customer: { ...DEFAULT_CUSTOMER, ...customer } })));
   api.put('/config', wrap(async (req, res) => res.json(await req.rt.service.putConfig(req.body))));
   api.get('/fault', wrap(async (req, res) => res.json(await req.rt.service.getFault())));
   api.put('/fault', wrap(async (req, res) => res.json(await req.rt.service.putFault(req.body))));
