@@ -1,6 +1,6 @@
 // A copy of the validation rules in demo-shelf's server/src/registry.js (validateDemos, checkPath, checkOrigin and their constants),
 // reduced to returning a list of problems. Copied, not imported: this repo never reads the shelf repo at runtime.
-// Copy includes the `where` / `hostedUrl` fields. If the shelf's rules change, update this copy.
+// Copy includes the `where` / `hostedUrl` fields. If the shelf's rules change, update this copy. Relative paths are accepted: the shelf resolves them from its demo root.
 import path from 'node:path';
 
 const ID = /^[a-z0-9][a-z0-9-]{1,40}$/;
@@ -10,7 +10,7 @@ const WHERE = ['installed', 'hosted', 'both'];
 const FIELDS = ['id', 'name', 'catalogId', 'kind', 'description', 'url', 'where', 'hostedUrl', 'healthPath', 'composeFile', 'composeOverlays', 'notes'];
 
 function checkPath(label, p, errors) {
-  if (typeof p !== 'string' || !path.isAbsolute(p)) return errors.push(`${label} must be an absolute path`);
+  if (typeof p !== 'string' || !p) return errors.push(`${label} must be a path`);
   if (SHELL_CHARS.test(p)) return errors.push(`${label} contains shell characters`);
   if (p.split('/').includes('..')) return errors.push(`${label} must not contain ".."`);
   if (!/\.ya?ml$/.test(p)) errors.push(`${label} must be a .yml or .yaml file`);
