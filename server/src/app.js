@@ -12,6 +12,7 @@ import { loadCustomer, DEFAULT_CUSTOMER } from './customer.js';
 import { startSidecar, createSidecarState } from './sidecar.js';
 import { SE_MOCK_BANNER, modeFrom, publicOriginFrom, refusedFlagsSet } from './config.js';
 import { DEFAULT_WORKSPACE, WORKSPACE_HEADER, WORKSPACE_RE, createWorkspaces } from './workspaces.js';
+import { shelfInfo } from './shelfLink.js';
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 // 'anon-' + 16 hex characters: a valid workspace id (WORKSPACE_RE), unguessable, never reused.
@@ -47,6 +48,7 @@ export function createApp({ service, realService = null, workspaces = null, mode
     return next();
   });
   if (webDist && fs.existsSync(path.join(webDist, 'index.html'))) {
+app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo()); }); // the header "Shelf" button
     app.use(express.static(webDist, {
       index: 'index.html', dotfiles: 'ignore',
       setHeaders: (res) => res.set({ ...API_HEADERS, 'Content-Security-Policy': UI_CSP }),

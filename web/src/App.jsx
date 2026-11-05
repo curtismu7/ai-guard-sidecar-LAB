@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import ShelfLink from "./components/ShelfLink.jsx";
 import * as api from "./lib/api.js";
 import { buildSteps } from "./lib/model.js";
 import { Demo, StandIn, Unverified } from "./components/Badges.jsx";
@@ -161,6 +162,7 @@ export default function App() {
       <header className="top">
         <div className="top-in">
           <h1>AI Guard Sidecar</h1>
+        <ShelfLink />
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <ModeToggle info={info} onSelect={onSelectMode} />
           <button type="button" className="btn" aria-pressed={presenterOn()} onClick={() => setPresenter(!presenterOn())}>Present</button>
