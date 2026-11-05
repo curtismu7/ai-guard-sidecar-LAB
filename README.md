@@ -6,6 +6,35 @@ A small, offline demo of how an **external guardrail sidecar** plugs into an age
 
 Repo: https://github.com/curtismu7/ai-guard-sidecar-LAB
 
+## Run from a clone
+
+Prerequisites: Node 26. Docker (OrbStack) only for the Docker form.
+
+```
+git clone https://github.com/curtismu7/ai-guard-sidecar-LAB.git
+cd ai-guard-sidecar-LAB
+npm ci
+npm run build
+npm run doctor
+npm start
+```
+
+## Ports, and what to do if the port is taken
+
+```
+Ports: ai-guard-sidecar-LAB listens on 6500 (set with PORT, default 6500).
+Port range for this app: 6500-6549.
+
+If the port is taken:
+1. Find what is using it:
+   lsof -iTCP:6500 -sTCP:LISTEN -n -P
+2. If it is an old copy of this app, stop that process: kill <PID>.
+3. If it is something else, stop it, or start this app on another port:
+   PORT=<other port> npm start
+```
+
+Other variable: `HOST_PORT=6500` (Docker host port). Keep both inside 6500-6549.
+
 ## Read this first: what is and is not claimed
 
 - **The contract is reverse-engineered.** The `/inspect` request and response shapes, and the gateway behaviour above, are *as understood from the demo environment, UNVERIFIED against product documentation*. They come from a sidecar README in a sibling project that says the contract was reverse-engineered. Check the product documentation before relying on any detail.
