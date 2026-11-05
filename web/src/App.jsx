@@ -17,6 +17,7 @@ import Inert from "./components/Inert.jsx";
 import HostedBanner from "./components/HostedBanner.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import H2Tab from "./components/H2Tab.jsx";
+import { getWorkspaceId } from "./lib/workspace.js";
 
 const THEME_KEY = "ai-guard-theme";
 const readTheme = () => {
@@ -162,7 +163,7 @@ export default function App() {
       <header className="top">
         <div className="top-in">
           <h1>AI Guard Sidecar</h1>
-        <ShelfLink />
+        <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <ModeToggle info={info} onSelect={onSelectMode} />
           <button type="button" className="btn" aria-pressed={presenterOn()} onClick={() => setPresenter(!presenterOn())}>Present</button>
