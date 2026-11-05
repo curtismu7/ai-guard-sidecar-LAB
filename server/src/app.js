@@ -48,7 +48,6 @@ export function createApp({ service, realService = null, workspaces = null, mode
     return next();
   });
   if (webDist && fs.existsSync(path.join(webDist, 'index.html'))) {
-app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo()); }); // the header "Shelf" button
     app.use(express.static(webDist, {
       index: 'index.html', dotfiles: 'ignore',
       setHeaders: (res) => res.set({ ...API_HEADERS, 'Content-Security-Policy': UI_CSP }),
@@ -126,6 +125,7 @@ app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res
     console.error('[ai-guard-sidecar] api error:', err.message);
     return res.status(500).json({ error: 'server_error' });
   });
+  app.get('/api/shelf', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(shelfInfo()); }); // the header "Shelf" button
   app.use('/api', api);
   app.use((_req, res) => bad(res, 'no such endpoint', 404));
   app.use((err, _req, res, _next) => (err instanceof URIError || err.status === 400 ? bad(res, 'malformed request') : res.status(500).json({ error: 'server_error' })));
