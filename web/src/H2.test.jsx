@@ -76,7 +76,7 @@ describe("H2 2026 release tab", () => {
   it("changing the theme and resetting on either tab does not blank the page", async () => {
     const user = await ready();
     await openH2(user);
-    await user.click(screen.getByRole("button", { name: /Switch to (dark|light) theme/ }));
+    await user.selectOptions(screen.getByTestId("theme"), "dark");
     expect(screen.getByTestId("numbers")).toBeInTheDocument();
     await user.click(screen.getByTestId("tab-demo"));
     await user.click(screen.getByRole("button", { name: "Reset" }));

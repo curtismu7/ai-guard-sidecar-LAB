@@ -206,7 +206,7 @@ describe("App", () => {
   it("the theme toggle switches data-theme", async () => {
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("button", { name: /Switch to dark theme/ }));
+    await user.selectOptions(screen.getByTestId("theme"), "dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 

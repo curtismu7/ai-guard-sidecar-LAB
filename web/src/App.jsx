@@ -21,8 +21,8 @@ import { getWorkspaceId } from "./lib/workspace.js";
 
 const THEME_KEY = "ai-guard-theme";
 const readTheme = () => {
-  try { const t = localStorage.getItem(THEME_KEY); if (t === "dark" || t === "light") return t; } catch { /* storage blocked */ }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try { const t = localStorage.getItem(THEME_KEY); if (t === "dark" || t === "light" || t === "auto") return t; } catch { /* storage blocked */ }
+  return "auto";
 };
 const MAX_TEXT = 4000;
 // The release banner: every product claim about the H2 2026 release is Ping's, and not checked on our tenant.
@@ -54,7 +54,8 @@ export default function App() {
   const latest = useRef({});
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    if (theme === "auto") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
     try { localStorage.setItem(THEME_KEY, theme); } catch { /* storage blocked */ }
   }, [theme]);
 
@@ -167,7 +168,13 @@ export default function App() {
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <ModeToggle info={info} onSelect={onSelectMode} />
           <button type="button" className="btn" aria-pressed={presenterOn()} onClick={() => setPresenter(!presenterOn())}>Present</button>
-          <button type="button" className="btn theme" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>{theme === "dark" ? "Light" : "Dark"} theme</button>
+          <label className="inline">Theme
+            <select value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="theme">
+              <option value="auto">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
         </div>
       </header>
       <main id="main" tabIndex={-1}>
