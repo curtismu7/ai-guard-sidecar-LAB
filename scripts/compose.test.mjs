@@ -67,3 +67,7 @@ test('the healthcheck uses /api/health, in compose and in the Dockerfile', () =>
 test('the pre-commit hook runs gitleaks', () => {
   assert.match(fs.readFileSync(new URL('../.githooks/pre-commit', import.meta.url), 'utf8'), /gitleaks protect --staged/);
 });
+
+test('compose passes a usable SHELF_URL so the header Shelf button shows in Docker', () => {
+  assert.match(code, /SHELF_URL:\s*\$\{SHELF_URL:-http:\/\/127\.0\.0\.1:4400\}/);
+});
