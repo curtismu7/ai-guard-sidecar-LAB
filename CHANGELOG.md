@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Answer the lab-proxy host name (fixes `bad_host` behind the family lab-proxy): `LAB_ALLOWED_HOSTS` (comma separated host names, loopback always works, unset = loopback only, a bad name refuses to start before any server starts) and same-origin writes whose `Origin` equals the proxy's `X-Forwarded-Proto://X-Forwarded-Host`, believed only when `Host` is an allowed name. Compose defaults it to this app's proxy name. `AI_GUARD_PUBLIC_ORIGIN` is unchanged.
 - H2 2026 release updates (Ping release claims, UNVERIFIED on our tenant): a second tab with selectable personal-data kinds (the app's own set of 11, each with a check digit proved live), twelve bundled secret detectors (off by default), your own gitleaks-format rules (one bad rule refuses the whole paste; bounded parser, static regex check, V8 linear-time fallback), and prompt logging sealed to an X25519 key the page holds. Ping's figures are quoted from the deck and never shown as the app's. Release banner and per-field claim tags on both tabs; render guard around each tab; talk track generated with a drift test; content pack gains six terms and three cards. The original behaviour is unchanged by default.
 - Masking: NFKC and default-ignorable/format-character folding, three rounds of percent-decoding, plain-language secrets, mask before truncating; errors no longer echo an unknown field name.
 - No `Non-Human Identity` text exists in this repo, so the Federated Identity display rename changes nothing here.

@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { createHealth } from './health.js';
 import { Invalid, QueueFull, Refused, SidecarDown, createService } from './service.js';
-import { assertBindAllowed, assertSidecarUrl, bindHost, credentialGuard, embeddedSidecarPort, hostGuard, makeOriginGuard, portInRange, serverPort } from './safety.js';
+import { assertBindAllowed, assertSidecarUrl, bindHost, credentialGuard, embeddedSidecarPort, makeHostGuard, makeOriginGuard, portInRange, serverPort } from './safety.js';
 import { loadCustomer, DEFAULT_CUSTOMER } from './customer.js';
 import { startSidecar, createSidecarState } from './sidecar.js';
-import { SE_MOCK_BANNER, modeFrom, publicOriginFrom, refusedFlagsSet } from './config.js';
+import { SE_MOCK_BANNER, allowedHostsFrom, modeFrom, publicOriginFrom, refusedFlagsSet } from './config.js';
 import { DEFAULT_WORKSPACE, WORKSPACE_HEADER, WORKSPACE_RE, createWorkspaces } from './workspaces.js';
 import { shelfInfo } from './shelfLink.js';
 
@@ -27,7 +27,7 @@ export const UI_CSP = "default-src 'self'; script-src 'self'; style-src 'self' '
 // webDist: directory with the built UI (web/dist). null disables static serving; a missing directory leaves / a JSON 404.
 // mode 'local' (default): one service, the header is ignored. mode 'se-mock': `workspaces` (a registry from
 // createWorkspaces) gives each X-Workspace-Id its own runtime, and a malformed id is refused with 400.
-export function createApp({ service, realService = null, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null, customer = loadCustomer() } = {}) {
+export function createApp({ service, realService = null, workspaces = null, mode = 'local', health = createHealth(), webDist = DEFAULT_WEB_DIST, publicOrigin = null, allowedHosts = new Set(), customer = loadCustomer() } = {}) {
   const seMock = mode === 'se-mock';
   // Local mode: Mock is the embedded stand-in sidecar; Real is the external sidecar, present only when AI_GUARD_SIDECAR_URL is set.
   // The default is Real when it exists (as before), else Mock. The hosted build is Mock only and cannot be switched.
@@ -35,8 +35,8 @@ export function createApp({ service, realService = null, workspaces = null, mode
   const registry = workspaces ?? { get: () => ({ service: modeState.source === 'real' ? realService : service }) };
   const app = express();
   app.disable('x-powered-by');
-  app.use(hostGuard);
-  app.use(makeOriginGuard({ publicOrigin }));
+  app.use(makeHostGuard(allowedHosts));
+  app.use(makeOriginGuard({ publicOrigin, allowedHosts }));
   app.use((_req, res, next) => { res.set(API_HEADERS); next(); });
   // The workspace this request works in. Static files do not need one, so the lookup is lazy for them.
   app.use((req, res, next) => {
@@ -137,13 +137,14 @@ export function createApp({ service, realService = null, workspaces = null, mode
 export async function startHttpServer({ port = serverPort(), host = bindHost(), env = process.env, embeddedPort = embeddedSidecarPort(env), sidecarUrl = env.AI_GUARD_SIDECAR_URL, service: given, webDist } = {}) {
   const mode = modeFrom(env);
   assertBindAllowed(host, env);
+  const allowedHosts = allowedHostsFrom(env); // before any sidecar starts: a bad name must not leave servers running
   if (!portInRange(port)) throw new Error(`port ${port} is outside 6500-6549`);
   if (mode === 'se-mock') {
     const publicOrigin = publicOriginFrom(env);
     const refused = refusedFlagsSet(env);
     if (refused.length) throw new Error(`refusing to start in MODE=se-mock: ${refused.join(', ')} set (live features are refused by the mock-only build)`);
     if (given) throw new Error('MODE=se-mock builds its own services, one per workspace; a service cannot be supplied');
-    return startSeMockServer({ port, host, env, embeddedPort, webDist, publicOrigin });
+    return startSeMockServer({ port, host, env, embeddedPort, webDist, publicOrigin, allowedHosts });
   }
   if (sidecarUrl) assertSidecarUrl(sidecarUrl);
   const embedded = await startSidecar({ port: embeddedPort }); // always: the Mock side
@@ -153,12 +154,12 @@ export async function startHttpServer({ port = serverPort(), host = bindHost(), 
   const probe = async () => { try { return (await service.gateway.admin('GET', '/health')).status === 200; } catch { return false; } };
   const health = createHealth({ env, probe });
   await health.ready;
-  return listen({ port, host, app: createApp({ service: mockService, realService, health, mode, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: service.gateway.base });
+  return listen({ port, host, app: createApp({ service: mockService, realService, health, mode, allowedHosts, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: service.gateway.base });
 }
 
 // MODE=se-mock: the embedded sidecar keeps one state per workspace, and every workspace gets its own service (config,
 // fault settings through the sidecar, decision log, run queue). The sidecar URL is never configurable here.
-async function startSeMockServer({ port, host, env, embeddedPort, webDist, publicOrigin }) {
+async function startSeMockServer({ port, host, env, embeddedPort, webDist, publicOrigin, allowedHosts }) {
   let registry = null;
   const embedded = await startSidecar({ port: embeddedPort, stateFor: (id) => registry.get(id).sidecar });
   registry = createWorkspaces({ create: (id) => ({ sidecar: createSidecarState(), service: createService({ sidecarUrl: embedded.url, workspace: id }) }) });
@@ -166,7 +167,7 @@ async function startSeMockServer({ port, host, env, embeddedPort, webDist, publi
   const probe = async () => { try { return (await service.gateway.admin('GET', '/health')).status === 200; } catch { return false; } };
   const health = createHealth({ env, probe });
   await health.ready;
-  return listen({ port, host, app: createApp({ workspaces: registry, mode: 'se-mock', health, publicOrigin, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: embedded.url });
+  return listen({ port, host, app: createApp({ workspaces: registry, mode: 'se-mock', health, publicOrigin, allowedHosts, ...(webDist === undefined ? {} : { webDist }) }), service, embedded, health, sidecarUrl: embedded.url });
 }
 
 function listen({ port, host, app, service, embedded, health, sidecarUrl }) {
