@@ -279,3 +279,16 @@ test('without a built UI, GET / is a JSON 404', async (t) => {
   assert.equal(res.status, 404);
   assert.equal(res.json.error, 'not_found');
 });
+
+test('GET /api/shelf is reachable without a web build and reads SHELF_URL; POST is refused', async () => {
+  const prev = process.env.SHELF_URL;
+  process.env.SHELF_URL = 'https://shelf.example:8443/';
+  try {
+    const r = await get('/api/shelf');
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.json, { shelfUrl: 'https://shelf.example:8443' });
+    assert.notEqual((await post('/api/shelf', {})).status, 200);
+  } finally {
+    if (prev === undefined) delete process.env.SHELF_URL; else process.env.SHELF_URL = prev;
+  }
+});
