@@ -26,6 +26,15 @@ export function publicOriginFrom(env = process.env) {
   return v;
 }
 
+// Extra Host names this app answers to (family standard): LAB_ALLOWED_HOSTS, comma separated host names that point at this Mac,
+// such as the lab-proxy's ai-guard-sidecar.local.ping-devops.com. Loopback always works; unset = loopback only.
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+export function allowedHostsFrom(env = process.env) {
+  const names = String(env.LAB_ALLOWED_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+  for (const h of names) if (!HOSTNAME.test(h)) throw new Error(`LAB_ALLOWED_HOSTS: not a host name: ${h}`);
+  return new Set(names);
+}
+
 export function refusedFlagsSet(env = process.env) {
   return REFUSED_IN_SE_MOCK.filter((k) => env[k] !== undefined && env[k] !== '');
 }

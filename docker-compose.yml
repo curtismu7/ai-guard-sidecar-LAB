@@ -13,6 +13,7 @@ services:
       SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
       AI_GUARD_PORT: "6500"
       AI_GUARD_BIND: 0.0.0.0
+      LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-ai-guard-sidecar.local.ping-devops.com}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

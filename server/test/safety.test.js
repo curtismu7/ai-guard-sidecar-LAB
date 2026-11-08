@@ -3,6 +3,8 @@ import http from 'node:http';
 import { test } from 'node:test';
 import express from 'express';
 import { assertBindAllowed, assertSidecarUrl, credentialGuard, hostGuard, isLoopbackHost, originGuard, parseHost, portInRange } from '../src/safety.js';
+import net from 'node:net';
+import { startHttpServer } from '../src/app.js';
 import { freeBase, request } from './helpers.js';
 
 test('loopback hosts', () => {
@@ -67,6 +69,72 @@ test('guards: the Origin must be exactly the canonical http origin (not https, n
     assert.equal((await post(`http://127.0.0.1:${g.port}/`)).status, 403, 'an origin has no path');
     assert.equal((await post('null')).status, 403);
   } finally { await g.close(); }
+});
+
+const canBind = (port) => new Promise((resolve) => { const s = net.createServer(); s.once('error', () => resolve(false)); s.listen(port, '127.0.0.1', () => s.close(() => resolve(true))); });
+const PROXY_HOST = 'ai-guard-sidecar.local.ping-devops.com';
+
+test('LAB_ALLOWED_HOSTS: the lab-proxy name is served on any port, other names stay 421, a bad name refuses to start and leaves nothing running', async () => {
+  const base = await freeBase('safety', 2);
+  const srv = await startHttpServer({ port: base, embeddedPort: base + 1, env: { LAB_ALLOWED_HOSTS: `${PROXY_HOST}, Other.Example` }, webDist: null });
+  try {
+    for (const host of [`${PROXY_HOST}:6500`, PROXY_HOST, 'AI-Guard-Sidecar.Local.Ping-Devops.com:8443', 'other.example', 'OTHER.example:8443', `127.0.0.1:${base}`]) {
+      assert.equal((await request(base, 'GET', '/api/health', { host })).status, 200, host);
+    }
+    for (const host of ['evil.example.com', `${PROXY_HOST}.evil.com`, 'xai-guard-sidecar.local.ping-devops.example', 'local.ping-devops.com:8443', 'ping-devops.com']) {
+      assert.equal((await request(base, 'GET', '/api/health', { host })).status, 421, host);
+    }
+  } finally { await srv.close(); }
+  const b2 = await freeBase('safety', 2);
+  await assert.rejects(startHttpServer({ port: b2, embeddedPort: b2 + 1, env: { LAB_ALLOWED_HOSTS: 'not a host name' }, webDist: null }), /LAB_ALLOWED_HOSTS: not a host name: not a host name/);
+  await assert.rejects(startHttpServer({ port: b2, embeddedPort: b2 + 1, env: { MODE: 'se-mock', LAB_ALLOWED_HOSTS: 'a.example,-bad-' }, webDist: null }), /LAB_ALLOWED_HOSTS: not a host name: -bad-/);
+  assert.equal(await canBind(b2), true, 'no server left on the main port');
+  assert.equal(await canBind(b2 + 1), true, 'no embedded sidecar left running');
+  // unset: the default stays loopback only
+  const plain = await startHttpServer({ port: b2, embeddedPort: b2 + 1, env: {}, webDist: null });
+  try {
+    assert.equal((await request(b2, 'GET', '/api/health', { host: `${PROXY_HOST}:6500` })).status, 421);
+    assert.equal((await request(b2, 'GET', '/api/health', { host: `127.0.0.1:${b2}` })).status, 200);
+  } finally { await plain.close(); }
+});
+
+test('behind the lab-proxy: a write is accepted only with the proxy\'s forwarded origin AND an allowed Host; AI_GUARD_PUBLIC_ORIGIN still works', async () => {
+  const base = await freeBase('safety', 2);
+  const pub = 'https://guard.demo.example';
+  const srv = await startHttpServer({ port: base, embeddedPort: base + 1, env: { MODE: 'se-mock', LAB_ALLOWED_HOSTS: PROXY_HOST, AI_GUARD_PUBLIC_ORIGIN: pub }, webDist: null });
+  try {
+    const proxyHost = `${PROXY_HOST}:6500`;
+    const fwd = { 'x-forwarded-host': 'local.ping-devops.com:8443', 'x-forwarded-proto': 'https' };
+    const body = { mode: 'none', delayMs: 0 };
+    const via = (headers, host = proxyHost) => request(base, 'PUT', '/api/fault', { host, body, headers });
+    // what the browser and the proxy really send for a same-origin write
+    assert.equal((await via({ ...fwd, origin: 'https://local.ping-devops.com:8443', 'sec-fetch-site': 'same-origin' })).status, 200);
+    assert.equal((await via({ ...fwd, origin: 'https://local.ping-devops.com:8443' })).status, 200);
+    assert.equal((await via({ 'x-forwarded-host': 'local.ping-devops.com:8443', origin: 'https://local.ping-devops.com:8443' })).status, 200, 'proto defaults to https');
+    assert.equal((await via({ ...fwd, origin: 'https://local.ping-devops.com:8443' }, PROXY_HOST.toUpperCase())).status, 200, 'Host without a port, any case');
+    // refused: a foreign origin, a mismatched forwarded host, a wrong scheme, a cross-site fetch, no forwarded host at all
+    for (const headers of [
+      { ...fwd, origin: 'https://evil.example.com' },
+      { ...fwd, origin: 'https://local.ping-devops.com:9999' },
+      { ...fwd, origin: 'http://local.ping-devops.com:8443' },
+      { ...fwd, origin: 'https://local.ping-devops.com:8443', 'sec-fetch-site': 'cross-site' },
+      { origin: 'https://local.ping-devops.com:8443' },
+      { 'x-forwarded-host': 'evil.example.com', 'x-forwarded-proto': 'https', origin: 'https://local.ping-devops.com:8443' },
+      { 'x-forwarded-host': 'local.ping-devops.com:8443', 'x-forwarded-proto': 'ftp', origin: 'ftp://local.ping-devops.com:8443' },
+    ]) assert.equal((await via(headers)).status, 403, JSON.stringify(headers));
+    // the forwarded headers are not believed on a loopback Host: a page that did not come through the proxy cannot use them
+    assert.equal((await via({ ...fwd, origin: 'https://local.ping-devops.com:8443' }, `127.0.0.1:${base}`)).status, 403);
+    // the old hosted setting is unchanged
+    assert.equal((await via({ origin: pub }, `127.0.0.1:${base}`)).status, 200, 'AI_GUARD_PUBLIC_ORIGIN on a loopback Host');
+    assert.equal((await via({ origin: `http://127.0.0.1:${base}` }, `127.0.0.1:${base}`)).status, 200, 'loopback origin');
+  } finally { await srv.close(); }
+  // without LAB_ALLOWED_HOSTS the same request is refused at the Host check
+  const b2 = await freeBase('safety', 2);
+  const plain = await startHttpServer({ port: b2, embeddedPort: b2 + 1, env: {}, webDist: null });
+  try {
+    const r = await request(b2, 'PUT', '/api/fault', { host: `${PROXY_HOST}:6500`, body: { mode: 'none', delayMs: 0 }, headers: { 'x-forwarded-host': 'local.ping-devops.com:8443', 'x-forwarded-proto': 'https', origin: 'https://local.ping-devops.com:8443' } });
+    assert.equal(r.status, 421);
+  } finally { await plain.close(); }
 });
 
 test('guards: a chunked body (no Content-Length) that is not JSON is refused with 415', async () => {
