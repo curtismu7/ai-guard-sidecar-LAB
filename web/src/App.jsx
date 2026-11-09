@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ShelfLink from "./components/ShelfLink.jsx";
+// Opened from Customer Agent LAB (UC-LEARN11 routes here): strip + header Back only; no scenario or vertical is preselected.
+import ReturnLink from "./return-link/ReturnLink.jsx";
 import * as api from "./lib/api.js";
 import { buildSteps } from "./lib/model.js";
 import { Demo, StandIn, Unverified } from "./components/Badges.jsx";
@@ -161,9 +163,11 @@ export default function App() {
     <>
       <a className="skip" href="#main">Skip to content</a>
       <HostedBanner banner={info?.banner} />
+      <ReturnLink app="ai-guard-sidecar" />
       <header className="top">
         <div className="top-in">
           <h1>AI Guard Sidecar</h1>
+          <ReturnLink app="ai-guard-sidecar" variant="header" />
         <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <ModeToggle info={info} onSelect={onSelectMode} />
