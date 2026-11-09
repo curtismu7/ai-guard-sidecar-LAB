@@ -71,7 +71,7 @@ try {
   for (let i = 0; i < 90; i++) { stops.push(await active()); await page.keyboard.press('Tab'); }
   const has = (needle) => stops.some((s) => s.includes(needle));
   check(firstStop.includes('Skip to content'), 'first Tab stop is the skip link');
-  for (const n of ['Switch to dark theme', 'Run scenario', 'custom-text', 'custom-reply', 'custom-caller', 'Run my text', 'Simulate', 'Speed', 'th-prompt_injection', 'th-jailbreak', 'th-pii', 'det-th', 'switch', 'Show fail closed vs fail open', 'Try this text']) {
+  for (const n of ['SELECT||Theme', 'Run scenario', 'custom-text', 'custom-reply', 'custom-caller', 'Run my text', 'Simulate', 'Speed', 'th-prompt_injection', 'th-jailbreak', 'th-pii', 'det-th', 'switch', 'Show fail closed vs fail open', 'Try this text']) {
     check(has(n) || (n === 'switch' && stops.some((s) => s.includes('Sidecar Fail Closed'))), `keyboard reaches: ${n}`);
   }
   check(stops.some((s) => /INPUT\|\|\s*(None|502 error|Timeout|Slow)/.test(s)), 'keyboard reaches the fault injector radios');
@@ -210,7 +210,7 @@ try {
   await pick('Direct prompt injection');
   await page.getByRole('button', { name: 'Run scenario' }).click();
   await page.getByTestId('result').waitFor();
-  await page.getByRole('button', { name: /Switch to dark theme/ }).click();
+  await page.getByTestId('theme').selectOption('dark');
   check((await page.evaluate(() => document.documentElement.dataset.theme)) === 'dark', 'theme toggles to dark');
   await sleep(300);
   await shot('4-dark');
@@ -218,7 +218,7 @@ try {
   await sleep(400);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal page scroll at 390px (dark)');
   await shot('5-phone-dark');
-  await page.getByRole('button', { name: /Switch to light theme/ }).click();
+  await page.getByTestId('theme').selectOption('light');
   await sleep(300);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal page scroll at 390px (light)');
   await shot('6-phone-light');
