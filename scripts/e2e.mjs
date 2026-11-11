@@ -210,7 +210,7 @@ try {
   await pick('Direct prompt injection');
   await page.getByRole('button', { name: 'Run scenario' }).click();
   await page.getByTestId('result').waitFor();
-  await page.getByTestId('theme').selectOption('dark');
+  await page.getByTestId('theme-select').selectOption('dark');
   check((await page.evaluate(() => document.documentElement.dataset.theme)) === 'dark', 'theme toggles to dark');
   await sleep(300);
   await shot('4-dark');
@@ -218,7 +218,7 @@ try {
   await sleep(400);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal page scroll at 390px (dark)');
   await shot('5-phone-dark');
-  await page.getByTestId('theme').selectOption('light');
+  await page.getByTestId('theme-select').selectOption('light');
   await sleep(300);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal page scroll at 390px (light)');
   await shot('6-phone-light');
