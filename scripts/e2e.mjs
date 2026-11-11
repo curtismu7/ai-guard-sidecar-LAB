@@ -130,7 +130,7 @@ try {
   await runPicked();
   check((await recorded()).includes('ALLOW') && (await recorded()).includes('differs'), 'a fresh run with the relaxed threshold really allows the attack, and says it differs from the default');
   await shot('1-threshold-light');
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.getByTestId('reset').click();
   await page.getByTestId('result').waitFor({ state: 'detached' });
   check((await (await fetch(`${base}/api/config`)).json()).gateway.blockThresholds.prompt_injection === 'medium', 'Reset restores the default thresholds');
 
@@ -202,7 +202,7 @@ try {
   check(/response/i.test(cap) && /BLOCK/.test(cap), `the last step matches the real run (blocked at the response): "${cap.slice(0, 110)}"`);
   check((await page.locator('.fbox.s-block').count()) === 1, 'the Decision box shows BLOCK');
   await shot('3-simulate-light');
-  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.getByTestId('reset').click();
   await page.getByTestId('caption').filter({ hasText: 'Press Simulate' }).waitFor();
   check((await page.locator('.fbox.on').count()) === 0, 'Reset clears the highlight and the result');
 
