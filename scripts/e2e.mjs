@@ -72,7 +72,7 @@ try {
   const has = (needle) => stops.some((s) => s.includes(needle));
   check(firstStop.includes('Skip to content'), 'first Tab stop is the skip link');
   for (const n of ['SELECT||Theme', 'Run scenario', 'custom-text', 'custom-reply', 'custom-caller', 'Run my text', 'Simulate', 'Speed', 'th-prompt_injection', 'th-jailbreak', 'th-pii', 'det-th', 'switch', 'Show fail closed vs fail open', 'Try this text']) {
-    check(has(n) || (n === 'switch' && stops.some((s) => s.includes('Sidecar Fail Closed'))), `keyboard reaches: ${n}`);
+    check(has(n) || (n === 'switch' && stops.some((s) => s.includes('Sidecar Fail Closed'))) || (n === 'SELECT||Theme' && stops.some((s) => /SELECT\|Theme/.test(s))), `keyboard reaches: ${n}`);
   }
   check(stops.some((s) => /INPUT\|\|\s*(None|502 error|Timeout|Slow)/.test(s)), 'keyboard reaches the fault injector radios');
   check(stops.some((s) => s.startsWith('INPUT') && /Benign prompt|Direct prompt/.test(s)) || stops.some((s) => s.startsWith('INPUT|')), 'keyboard reaches the scenario radios');
