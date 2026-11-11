@@ -7,7 +7,7 @@ import { buildSteps } from "./lib/model.js";
 import { Demo, StandIn, Unverified } from "./components/Badges.jsx";
 import Story from "./components/Story.jsx";
 import { setPresenter, initPresenter, presenterOn } from "./presenter.js";
-import ModeToggle from "./components/ModeToggle.jsx";
+import TopMenu from "./top-menu/TopMenu.jsx";
 import Diagram from "./components/Diagram.jsx";
 import Exchange from "./components/Exchange.jsx";
 import Findings from "./components/Findings.jsx";
@@ -170,15 +170,14 @@ export default function App() {
           <ReturnLink app="ai-guard-sidecar" variant="header" />
         <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
-          <ModeToggle info={info} onSelect={onSelectMode} />
-          <button type="button" className="btn" aria-pressed={presenterOn()} onClick={() => setPresenter(!presenterOn())}>Present</button>
-          <label className="inline">Theme
-            <select value={theme} onChange={(e) => setTheme(e.target.value)} data-testid="theme">
-              <option value="auto">Auto</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
+          <TopMenu
+            mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onSelectMode, realAvailable: info ? info.realAvailable === true : null, realHint: info?.realReason }}
+            theme={{ value: theme, onChange: setTheme }}
+            present={{ active: presenterOn(), onToggle: () => setPresenter(!presenterOn()), label: "Present" }}
+            help={{ href: "https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" }}
+            version={info?.version || null}
+            onReset={doReset}
+          />
         </div>
       </header>
       <main id="main" tabIndex={-1}>

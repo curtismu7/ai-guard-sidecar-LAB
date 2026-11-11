@@ -78,34 +78,34 @@ describe("App", () => {
   });
 
   it("offers only Mock when no external sidecar is configured, and says how to enable Real", async () => {
-    INFO = { mode: "local", hosted: false, banner: null, source: "mock", realAvailable: false };
+    INFO = { mode: "local", hosted: false, banner: null, source: "mock", realAvailable: false, realReason: "Real needs AI_GUARD_SIDECAR_URL: start the server with it set to an AI Guard sidecar, then switch." };
     await ready();
-    expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("mode-real")).toBeDisabled();
-    expect(screen.getByTestId("mode-real")).toHaveAttribute("title", expect.stringMatching(/AI_GUARD_SIDECAR_URL/));
+    expect(screen.getByTestId("mode-select").value).toBe("mock");
+    expect(screen.getByTestId("mode-select").querySelector('option[value="real"]').disabled).toBe(true);
+    expect(screen.getByTestId("mode-select").querySelector('option[value="real"]')).toHaveAttribute("title", expect.stringMatching(/AI_GUARD_SIDECAR_URL/));
     INFO = { mode: "local", hosted: false, banner: null };
   });
 
   it("switches between Mock and Real, tells the server, and loads the data again", async () => {
     INFO = { mode: "local", hosted: false, banner: null, source: "real", realAvailable: true };
     await ready();
-    expect(screen.getByTestId("mode-real")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mode-select").value).toBe("real");
     const before = calls.filter((c) => c.url === "/api/scenarios").length;
-    fireEvent.click(screen.getByTestId("mode-mock"));
-    await waitFor(() => expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "mock" } });
+    await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("mock"));
     expect(calls.find((c) => c.url === "/api/mode").body).toEqual({ source: "mock" });
     expect(calls.filter((c) => c.url === "/api/scenarios").length).toBeGreaterThan(before);
-    fireEvent.click(screen.getByTestId("mode-real"));
-    await waitFor(() => expect(screen.getByTestId("mode-real")).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "real" } });
+    await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("real"));
     INFO = { mode: "local", hosted: false, banner: null };
   });
 
   it("shows Mock pressed and Real disabled in the hosted build", async () => {
-    INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic.", source: "mock", realAvailable: false };
+    INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic.", source: "mock", realAvailable: false, realReason: "The hosted build is Mock only." };
     await ready();
-    expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("mode-real")).toBeDisabled();
-    expect(screen.getByTestId("mode-real")).toHaveAttribute("title", "The hosted build is Mock only.");
+    expect(screen.getByTestId("mode-select").value).toBe("mock");
+    expect(screen.getByTestId("mode-select").querySelector('option[value="real"]').disabled).toBe(true);
+    expect(screen.getByTestId("mode-select").querySelector('option[value="real"]')).toHaveAttribute("title", "The hosted build is Mock only.");
     INFO = { mode: "local", hosted: false, banner: null };
   });
 
@@ -198,7 +198,7 @@ describe("App", () => {
     await ready();
     await user.click(screen.getByRole("button", { name: "Run scenario" }));
     await screen.findByTestId("result");
-    await user.click(screen.getByRole("button", { name: "Reset" }));
+    await user.click(screen.getByTestId("reset"));
     await waitFor(() => expect(screen.queryByTestId("result")).toBeNull());
     expect(calls.some((c) => c.url === "/api/reset" && c.method === "POST")).toBe(true);
   });
@@ -206,7 +206,7 @@ describe("App", () => {
   it("the theme toggle switches data-theme", async () => {
     const user = userEvent.setup();
     await ready();
-    await user.selectOptions(screen.getByTestId("theme"), "dark");
+    await user.selectOptions(screen.getByTestId("theme-select"), "dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 

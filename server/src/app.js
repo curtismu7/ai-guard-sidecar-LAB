@@ -66,7 +66,7 @@ export function createApp({ service, realService = null, workspaces = null, mode
   api.use(express.json({ limit: '16kb', strict: true }));
 
   // What the UI shows about the deployment. The banner is set only in se-mock (hosted and simulated).
-  const infoBody = (req) => ({ mode: seMock ? 'se-mock' : 'local', hosted: seMock, simulated: true, workspace: req.workspaceId, banner: seMock ? SE_MOCK_BANNER : null, source: seMock ? 'mock' : modeState.source, realAvailable: !seMock && !!realService });
+  const infoBody = (req) => ({ mode: seMock ? 'se-mock' : 'local', hosted: seMock, simulated: true, workspace: req.workspaceId, banner: seMock ? SE_MOCK_BANNER : null, source: seMock ? 'mock' : modeState.source, realAvailable: !seMock && !!realService, realReason: seMock ? 'The hosted build is Mock only.' : realService ? null : 'Real needs AI_GUARD_SIDECAR_URL: start the server with it set to an AI Guard sidecar, then switch.', version: (() => { try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version || null; } catch { return null; } })() });
   api.get('/info', (req, res) => res.json(infoBody(req)));
   // The Mock/Real toggle. Body is exactly {source: "mock" | "real"}. The hosted build is fail-closed Mock; Real needs a configured sidecar.
   api.post('/mode', (req, res) => {
