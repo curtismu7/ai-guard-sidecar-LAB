@@ -49,6 +49,12 @@ describe("return link", () => {
     expect(document.querySelector(".top-in > button.return-link--header")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: /Back to Customer Agent LAB/ })).toHaveLength(2);
   });
+  it("?from=ai-demo-standalone: the strip names AI Demo Standalone; Back goes to /ai-demo-standalone/", () => {
+    window.history.replaceState(null, "", "/?from=ai-demo-standalone&uc=UC-NHI2");
+    expect(returnLinkFor("ai-guard-sidecar").label).toBe("AI Demo Standalone");
+    expect(returnLinkFor("ai-guard-sidecar").href).toBe("http://127.0.0.1:7810/?returned=ai-guard-sidecar&uc=UC-NHI2");
+  });
+
 
   it("no from, an unknown from or a bad id: no strip, no button", async () => {
     for (const q of ["/", "/?from=elsewhere&uc=UC-LEARN11", "/?from=customer-agent&uc=%3Cb%3E", "/?from=customer-agent&uc=UC-LEARN11&vertical=a%20b"]) {
