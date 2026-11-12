@@ -132,3 +132,6 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 /* Presenter mode: the chrome steps back and the text grows. */
 :root[data-presenter="on"] body { font-size: 20px; }
 :root[data-presenter="on"] .top .btn.theme { display: none; }
+
+.talk { max-width: 52rem; }
+.talk__step { padding-left: 8px; border-left: 3px solid var(--accent); }

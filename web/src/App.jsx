@@ -16,6 +16,7 @@ import Outage from "./components/Outage.jsx";
 import StandInPanel from "./components/StandInPanel.jsx";
 import Log from "./components/Log.jsx";
 import Inert from "./components/Inert.jsx";
+import TalkTrack from "./components/TalkTrack.jsx";
 import HostedBanner from "./components/HostedBanner.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import H2Tab from "./components/H2Tab.jsx";
@@ -52,6 +53,7 @@ export default function App() {
   // Private keys made in the H2 tab live here, in memory only, so switching tabs does not lose them. Never sent, stored or logged.
   const [keyring, setKeyring] = useState([]);
   const [resetKey, setResetKey] = useState(0);
+  const [showTalk, setShowTalk] = useState(false);
   const saveTimer = useRef(null);
   const latest = useRef({});
 
@@ -177,6 +179,7 @@ export default function App() {
             help={{ href: "https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" }}
             version={info?.version || null}
             onReset={doReset}
+            talkTrack={{ active: showTalk, onToggle: () => setShowTalk((v) => !v) }}
           />
         </div>
       </header>
@@ -191,6 +194,7 @@ export default function App() {
         <ErrorBoundary resetKey={`${tab}-demo`}>
         <p className="lede">How an external guardrail sidecar plugs into an agent gateway. A mock gateway sends text to a stand-in sidecar over loopback HTTP and applies its answer. Pick a scenario, press Simulate, then change the thresholds or break the sidecar.</p>
         <Story />
+        {showTalk && <TalkTrack />}
         {error && <p role="alert" className="error" data-testid="error">{error}</p>}
         <p className="sr-only" role="status" aria-live="polite" data-testid="status">{status}</p>
 
