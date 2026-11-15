@@ -1,15 +1,13 @@
 import React from "react";
-import Inert from "./Inert.jsx";
+import Json from "./JsonPane.jsx";
 import { StandIn, Unverified } from "./Badges.jsx";
 
 // The exact JSON the gateway sends to /inspect and the answer it gets back (display copies: PII masked, hidden characters visible).
-const pretty = (v) => JSON.stringify(v, null, 2);
-
-function Pane({ title, sub, value }) {
+function Pane({ title, sub, value, hot }) {
   return (
     <div className="pane">
       <h4>{title} <span className="sub">{sub}</span></h4>
-      <pre tabIndex={0} aria-label={`${title} JSON`}><code><Inert text={pretty(value)} /></code></pre>
+      <Json value={value} label={`${title} JSON`} hot={hot} />
     </div>
   );
 }
@@ -26,12 +24,12 @@ export default function Exchange({ run }) {
         <div key={st.stage} className="exchange" data-testid={`exchange-${st.stage}`}>
           <h3>{st.stage === "request" ? "Request direction" : "Response direction"}</h3>
           <div className="panes">
-            <Pane title="Gateway sends" sub="POST /inspect" value={st.exchange.request} />
-            <Pane title="Sidecar answers" sub={st.exchange.response.status ? `HTTP ${st.exchange.response.status}` : "no answer"} value={st.exchange.response.body ?? { error: st.exchange.response.error }} />
+            <Pane title="Gateway sends" sub="POST /inspect" value={st.exchange.request} hot={["units", "text", "direction"]} />
+            <Pane title="Sidecar answers" sub={st.exchange.response.status ? `HTTP ${st.exchange.response.status}` : "no answer"} value={st.exchange.response.body ?? { error: st.exchange.response.error }} hot={["findings", "category", "severity"]} />
           </div>
         </div>
       ))}
-      {stages.length > 0 && <p className="fine">Shown with PII masked and secret-looking strings redacted, and long text cut at 300 characters. Hidden characters appear as <mark className="chip">[U+200B]</mark> style chips. An empty findings list means allow. Each JSON box scrolls (Tab to it, then use the arrow keys).</p>}
+      {stages.length > 0 && <p className="fine">Shown with PII masked and secret-looking strings redacted, and long text cut at 300 characters. Hidden characters appear as <code>[U+200B]</code> style escapes. An empty findings list means allow. Each box reads as a Form or as the exact JSON (the buttons above it); neither scrolls.</p>}
     </section>
   );
 }
