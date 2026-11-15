@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 import Log from "./components/Log.jsx";
+import { setJsonView } from "./components/JsonPane.jsx";
 import { POLICY, benignRun, injectionRun, outageRun } from "./test/fixtures.js";
 
 const SCENARIOS = [
@@ -25,6 +26,7 @@ const STAND_IN = { notice: "A deterministic keyword stand-in.", limits: [
 let INFO = { mode: "local", hosted: false, banner: null };
 let calls; let runs;
 beforeEach(() => {
+  setJsonView("raw"); // the Form | JSON choice is shared module state; these tests read the JSON text
   calls = []; runs = { benign: [benignRun()], "direct-injection": [injectionRun()], "outage-502": [outageRun(true), outageRun(false)] };
   document.documentElement.removeAttribute("data-theme");
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
@@ -122,6 +124,22 @@ describe("App", () => {
     expect(calls.find((c) => c.url === "/api/run").body).toEqual({ scenario: "direct-injection" });
   });
 
+  it("each /inspect pane has a Form | JSON toggle and the choice applies to every pane", async () => {
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByLabelText("Direct prompt injection"));
+    await user.click(screen.getByRole("button", { name: "Run scenario" }));
+    const ex = await screen.findByTestId("exchange-request");
+    const sends = within(ex).getByRole("group", { name: "Gateway sends JSON view" });
+    expect(within(sends).getAllByRole("button").map((b) => b.textContent)).toEqual(["Form", "JSON"]);
+    expect(within(sends).getByRole("button", { name: "JSON" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(sends).getByRole("button", { name: "Form" }));
+    const form = within(ex).getByRole("group", { name: "Gateway sends JSON" });
+    expect(form).toHaveTextContent("mock-gateway");
+    expect(ex.textContent).not.toContain('"app_name"');
+    expect(within(within(ex).getByRole("group", { name: "Sidecar answers JSON view" })).getByRole("button", { name: "Form" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("moving a threshold slider flips the decision live and saves it", async () => {
     const user = userEvent.setup();
     await ready();
@@ -178,7 +196,7 @@ describe("App", () => {
     const ex = await screen.findByTestId("exchange-request");
     expect(ex.querySelector("img")).toBeNull();
     expect(ex.textContent).toContain("<img src=x onerror=alert(1)>");
-    expect(Array.from(ex.querySelectorAll("mark.chip")).map((m) => m.textContent)).toContain("[U+200B]");
+    expect(ex.textContent).toContain("a[U+200B]b");
     expect(screen.getByTestId("findings-request").querySelector("b")).toBeNull();
     expect(screen.getByTestId("findings-request").querySelectorAll("mark.chip").length).toBe(1);
   });

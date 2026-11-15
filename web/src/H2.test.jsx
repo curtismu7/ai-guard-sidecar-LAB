@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 import { POLICY, benignRun, injectionRun } from "./test/fixtures.js";
 import { generateKeyPair } from "./lib/seal.js";
+import { setJsonView } from "./components/JsonPane.jsx";
 import { sealRecord, parsePublicJwk } from "../../server/src/seal.js";
 
 const KIND = (id, over = {}) => ({ id, label: `Kind ${id}`, group: "national", validation: "a check", severity: "high", legacy: false, valid: { shown: `m-${id}`, detected: true }, nearMiss: { shown: `n-${id}`, detected: false }, ...over });
@@ -28,6 +29,7 @@ const PL0 = () => ({ config: { Enabled: false, PublicKey: "", KeyID: "", Surface
 let calls; let state;
 const json = (status, j) => ({ ok: status < 400, status, json: async () => j });
 beforeEach(() => {
+  setJsonView("raw"); // the Form | JSON choice is shared module state; these tests read the JSON text
   calls = [];
   state = { sidecar: SIDECAR(), h2: H2(), rules: { custom: [], limits: {} }, pl: PL0(), putRules: null, runResult: null, h2Status: 200 };
   document.documentElement.removeAttribute("data-theme");

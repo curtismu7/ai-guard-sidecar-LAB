@@ -76,7 +76,6 @@ legend { font-weight: 600; font-size: .85rem; padding: 0 4px; }
 .pane h4 .sub, .sub { color: var(--muted); font-weight: 400; }
 .panes { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 760px) { .panes { grid-template-columns: 1fr 1fr; } }
-pre { margin: 6px 0 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow: auto; max-height: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .exchange + .exchange { margin-top: 14px; }
 mark.chip { background: var(--surface-2); color: var(--status-warn); border: 1px solid var(--status-warn); border-radius: 4px; padding: 0 3px; font-family: var(--font-mono); font-size: .85em; }
 
