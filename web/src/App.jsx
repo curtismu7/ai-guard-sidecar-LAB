@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ShelfLink from "./components/ShelfLink.jsx";
+import VerifyMark from "./components/VerifyMark.jsx";
 // Opened from Customer Agent LAB (UC-LEARN11 routes here): strip + header Back only; no scenario or vertical is preselected.
 import ReturnLink from "./return-link/ReturnLink.jsx";
 import * as api from "./lib/api.js";
@@ -171,6 +172,7 @@ export default function App() {
           <h1>AI Guard Sidecar</h1>
           <ReturnLink app="ai-guard-sidecar" variant="header" />
         <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
+        <VerifyMark id="ai-guard-sidecar" headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
           <TopMenu
             mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onSelectMode, realAvailable: info ? info.realAvailable === true : null, realHint: info?.realReason }}
