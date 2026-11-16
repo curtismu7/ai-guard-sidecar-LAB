@@ -33,7 +33,7 @@ describe("verification mark in the header", () => {
   it("shows this lab's own mark beside the Shelf link, and no other lab's", async () => {
     shelf = { shelfUrl: "http://shelf.example", demos: [{ id: "other-lab", verification: mark("in-progress", "In progress") }, { id: "ai-guard-sidecar", verification: mark("verified", "Verified", { note: "Every scenario run on the mock" }) }] };
     render(<App />);
-    const header = within(document.querySelector("header.top"));
+    const header = within(document.querySelector("header.shell-bar"));
     expect(await header.findByText("Verified")).toBeInTheDocument();
     expect(header.getByRole("link", { name: "Shelf" })).toBeInTheDocument();
     expect(header.queryByText("In progress")).toBeNull();
@@ -47,7 +47,7 @@ describe("verification mark in the header", () => {
     for (const payload of [{ shelfUrl: "http://shelf.example" }, { shelfUrl: "http://shelf.example", demos: [{ id: "ai-guard-sidecar", verification: null }, { id: "other-lab", verification: mark("verified", "Verified") }] }]) {
       shelf = payload;
       const { unmount } = render(<App />);
-      const header = within(document.querySelector("header.top"));
+      const header = within(document.querySelector("header.shell-bar"));
       expect(await header.findByRole("link", { name: "Shelf" })).toBeInTheDocument(); // the shelf answered, and still no badge
       await screen.findByLabelText("Benign prompt");
       expect(document.querySelector(".verify")).toBeNull();

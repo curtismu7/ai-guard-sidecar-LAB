@@ -165,34 +165,39 @@ export default function App() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      <HostedBanner banner={info?.banner} />
-      <ReturnLink app="ai-guard-sidecar" />
-      <header className="top">
-        <div className="top-in">
+      <header className="shell-bar">
+        <span className="shell-brand">
+          <span className="shell-logo" aria-hidden="true">AG</span>
           <h1>AI Guard Sidecar</h1>
-          <ReturnLink app="ai-guard-sidecar" variant="header" />
-        <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
-        <VerifyMark id="ai-guard-sidecar" headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
+          {info?.source === "real"
+            ? <span className="shell-badge shell-badge--real" data-testid="source-badge">Real<span className="sr-only">: calls go to the configured sidecar</span></span>
+            : <span className="shell-badge" data-testid="source-badge">Mock<span className="sr-only">: in-process stand-in sidecar, nothing real is contacted</span></span>}
           <span className="badges" data-testid="mode-badge"><Demo /><StandIn /><Unverified /></span>
-          <TopMenu
-            mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onSelectMode, realAvailable: info ? info.realAvailable === true : null, realHint: info?.realReason }}
-            theme={{ value: theme, onChange: setTheme }}
-            present={{ active: presenterOn(), onToggle: () => setPresenter(!presenterOn()), label: "Present" }}
-            help={{ href: "https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" }}
-            version={info?.version || null}
-            onReset={doReset}
-            talkTrack={{ active: showTalk, onToggle: () => setShowTalk((v) => !v) }}
-          />
-        </div>
+        </span>
+        <nav className="shell-nav" aria-label="Views">
+          {TABS.map(([id, label]) => (
+            <button key={id} type="button" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)} data-testid={`tab-${id}`}>{label}</button>
+          ))}
+        </nav>
+        <TopMenu
+          mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onSelectMode, realAvailable: info ? info.realAvailable === true : null, realHint: info?.realReason }}
+          theme={{ value: theme, onChange: setTheme }}
+          present={{ active: presenterOn(), onToggle: () => setPresenter(!presenterOn()), label: "Present" }}
+          help={{ href: "https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" }}
+          version={info?.version || null}
+          onReset={doReset}
+          talkTrack={{ active: showTalk, onToggle: () => setShowTalk((v) => !v) }}
+        >
+          <ReturnLink app="ai-guard-sidecar" variant="header" />
+          <ShelfLink headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
+          <VerifyMark id="ai-guard-sidecar" headers={() => ({ "X-Workspace-Id": getWorkspaceId() })} />
+        </TopMenu>
       </header>
       <main id="main" tabIndex={-1}>
+        <HostedBanner banner={info?.banner} />
+        <ReturnLink app="ai-guard-sidecar" />
         <p role="note" className="release-banner" data-testid="release-banner">{RELEASE_BANNER}</p>
-        <div className="view-tabs" role="tablist" aria-label="Views">
-          {TABS.map(([id, label]) => (
-            <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls={`panel-${id}`} className={`btn ${tab === id ? "primary" : ""}`} onClick={() => setTab(id)} data-testid={`tab-${id}`}>{label}</button>
-          ))}
-        </div>
-        <div role="tabpanel" id="panel-demo" aria-labelledby="tab-demo" hidden={tab !== "demo"}>
+        <section id="panel-demo" aria-labelledby="tab-demo" hidden={tab !== "demo"}>
         <ErrorBoundary resetKey={`${tab}-demo`}>
         <p className="lede">How an external guardrail sidecar plugs into an agent gateway. A mock gateway sends text to a stand-in sidecar over loopback HTTP and applies its answer. Pick a scenario, press Simulate, then change the thresholds or break the sidecar.</p>
         <Story />
@@ -273,14 +278,14 @@ export default function App() {
         <Log decisions={decisions} />
         <footer className="foot">Demo only. Loopback only. No model, no network. The /inspect contract and gateway behaviour are as understood from the demo environment, UNVERIFIED against product documentation, and nothing here says anything about real product detection quality, defaults or licensing.</footer>
         </ErrorBoundary>
-        </div>
-        <div role="tabpanel" id="panel-h2" aria-labelledby="tab-h2" hidden={tab !== "h2"}>
+        </section>
+        <section id="panel-h2" aria-labelledby="tab-h2" hidden={tab !== "h2"}>
           {tab === "h2" && (
             <ErrorBoundary resetKey={`${tab}-h2`}>
               <H2Tab config={config} onPiiKinds={onPiiKinds} onSecretsRail={onSecretsRail} thresholds={thresholds} failClosed={failClosed} keyring={keyring} setKeyring={setKeyring} resetKey={resetKey} onRan={refreshDecisions} />
             </ErrorBoundary>
           )}
-        </div>
+        </section>
       </main>
     </>
   );
