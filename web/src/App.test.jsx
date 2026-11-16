@@ -68,6 +68,21 @@ describe("App", () => {
     expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the local Mock banner as main's first child while /api/info is pending, and when it fails", async () => {
+    const base = globalThis.fetch;
+    for (const info of [() => new Promise(() => {}), async () => { throw new TypeError("network down"); }]) {
+      vi.stubGlobal("fetch", vi.fn((url, init) => (url === "/api/info" ? info() : base(url, init))));
+      await ready();
+      const banner = screen.getByTestId("sim-banner");
+      expect(banner).toHaveTextContent(MOCK_TEXT);
+      expect(banner).toHaveClass("banner");
+      expect(banner).toHaveAttribute("role", "note");
+      expect(banner).not.toHaveAttribute("data-state");
+      expect(document.querySelector("main").firstElementChild).toBe(banner);
+      cleanup();
+    }
+  });
+
   it("shows the server's hosted-and-simulated banner above the app, and sends the workspace id on every call", async () => {
     INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic." };
     await ready();
