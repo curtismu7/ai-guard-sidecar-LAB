@@ -46,7 +46,9 @@ describe("return link", () => {
     const note = await screen.findByRole("note", NOTE);
     expect(note.textContent).toContain("UC-LEARN11");
     expect((await screen.findByTestId("hosted-banner")).nextElementSibling).toBe(note);
-    expect(document.querySelector(".top-in > button.return-link--header")).not.toBeNull();
+    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("hosted-banner")); // the bar first, then main opens with the banner
+    expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector("header.shell-bar .top-menu button.return-link--header")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: /Back to Customer Agent LAB/ })).toHaveLength(2);
   });
   it("?from=ai-demo-standalone: the strip names AI Demo Standalone; Back goes to /ai-demo-standalone/", () => {

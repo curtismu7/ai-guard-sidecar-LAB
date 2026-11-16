@@ -71,7 +71,7 @@ describe("H2 2026 release tab", () => {
       expect(document.getElementById("panel-demo")).toHaveAttribute("hidden");
       await user.click(screen.getByTestId("tab-demo"));
       expect(screen.getByLabelText("Benign prompt")).toBeVisible();
-      expect(screen.getByTestId("tab-demo")).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-demo")).toHaveAttribute("aria-current", "page");
     }
   });
 
