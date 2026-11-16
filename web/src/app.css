@@ -126,9 +126,6 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 .result .tabs { margin: 8px 0; }
 .foot { color: var(--muted); font-size: .8rem; margin: 8px 0 24px; max-width: 100ch; }
 
-/* Mock-only SE build: the hosted and simulated banner, first in <main> on every view. */
-.hosted-banner { margin: 0; padding: 8px 16px; font-weight: 600; text-align: center; background: var(--surface-2); color: var(--status-warn); border-bottom: 1px solid var(--status-warn); }
-
 /* H2 2026 release: the banner (on every view) and the claim tags. */
 .release-banner { margin: 0 0 12px; padding: 6px 12px; font-weight: 700; text-align: center; background: var(--surface-2); color: var(--status-warn); border: 1px solid var(--status-warn); border-radius: 8px; }
 .return-link--strip + .release-banner { margin-top: 12px; } /* the hand-off strip sits right below the hosted banner, above this one */

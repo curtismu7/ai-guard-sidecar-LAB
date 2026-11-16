@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 import Log from "./components/Log.jsx";
+import { MOCK_TEXT, REAL_TEXT } from "./components/SimulationBanner.jsx";
 import { setJsonView } from "./components/JsonPane.jsx";
 import { POLICY, benignRun, injectionRun, outageRun } from "./test/fixtures.js";
 
@@ -55,15 +56,39 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const ready = async () => { render(<App />); await screen.findByLabelText("Benign prompt"); };
 
 describe("App", () => {
-  it("shows no hosted banner in the local demo", async () => {
+  it("shows the local Mock banner as main's first child in the local demo (no hosted text, not live)", async () => {
     await ready();
-    expect(screen.queryByTestId("hosted-banner")).toBeNull();
+    const banner = screen.getByTestId("sim-banner");
+    expect(banner).toHaveTextContent(MOCK_TEXT);
+    expect(banner).not.toHaveTextContent("HOSTED");
+    expect(banner).toHaveClass("banner");
+    expect(banner).toHaveAttribute("role", "note");
+    expect(banner).not.toHaveAttribute("data-state");
+    expect(document.querySelector("main").firstElementChild).toBe(banner);
+    expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the local Mock banner as main's first child while /api/info is pending, and when it fails", async () => {
+    const base = globalThis.fetch;
+    for (const info of [() => new Promise(() => {}), async () => { throw new TypeError("network down"); }]) {
+      vi.stubGlobal("fetch", vi.fn((url, init) => (url === "/api/info" ? info() : base(url, init))));
+      await ready();
+      const banner = screen.getByTestId("sim-banner");
+      expect(banner).toHaveTextContent(MOCK_TEXT);
+      expect(banner).toHaveClass("banner");
+      expect(banner).toHaveAttribute("role", "note");
+      expect(banner).not.toHaveAttribute("data-state");
+      expect(document.querySelector("main").firstElementChild).toBe(banner);
+      cleanup();
+    }
   });
 
   it("shows the server's hosted-and-simulated banner above the app, and sends the workspace id on every call", async () => {
     INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic." };
     await ready();
-    expect(screen.getByTestId("hosted-banner")).toHaveTextContent("HOSTED SIMULATION");
+    expect(screen.getByTestId("sim-banner")).toHaveTextContent("HOSTED SIMULATION: every decision here is synthetic.");
+    expect(screen.getByTestId("sim-banner")).not.toHaveAttribute("data-state");
+    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("sim-banner"));
     const id = calls.find((c) => c.url === "/api/info").headers["X-Workspace-Id"];
     expect(id).toMatch(/^w-[0-9a-f]{12}$/);
     expect(calls.every((c) => c.headers["X-Workspace-Id"] === id)).toBe(true);
@@ -92,13 +117,18 @@ describe("App", () => {
     INFO = { mode: "local", hosted: false, banner: null, source: "real", realAvailable: true };
     await ready();
     expect(screen.getByTestId("mode-select").value).toBe("real");
+    expect(screen.getByTestId("sim-banner")).toHaveTextContent(REAL_TEXT);
+    expect(screen.getByTestId("sim-banner")).toHaveAttribute("data-state", "live");
     const before = calls.filter((c) => c.url === "/api/scenarios").length;
     fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "mock" } });
     await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("mock"));
+    expect(screen.getByTestId("sim-banner")).toHaveTextContent(MOCK_TEXT);
+    expect(screen.getByTestId("sim-banner")).not.toHaveAttribute("data-state");
     expect(calls.find((c) => c.url === "/api/mode").body).toEqual({ source: "mock" });
     expect(calls.filter((c) => c.url === "/api/scenarios").length).toBeGreaterThan(before);
     fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "real" } });
     await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("real"));
+    expect(screen.getByTestId("sim-banner")).toHaveAttribute("data-state", "live");
     INFO = { mode: "local", hosted: false, banner: null };
   });
 

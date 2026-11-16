@@ -18,7 +18,7 @@ import StandInPanel from "./components/StandInPanel.jsx";
 import Log from "./components/Log.jsx";
 import Inert from "./components/Inert.jsx";
 import TalkTrack from "./components/TalkTrack.jsx";
-import HostedBanner from "./components/HostedBanner.jsx";
+import SimulationBanner from "./components/SimulationBanner.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import H2Tab from "./components/H2Tab.jsx";
 import { getWorkspaceId } from "./lib/workspace.js";
@@ -194,7 +194,7 @@ export default function App() {
         </TopMenu>
       </header>
       <main id="main" tabIndex={-1}>
-        <HostedBanner banner={info?.banner} />
+        <SimulationBanner info={info} />
         <ReturnLink app="ai-guard-sidecar" />
         <p role="note" className="release-banner" data-testid="release-banner">{RELEASE_BANNER}</p>
         <section id="panel-demo" aria-labelledby="tab-demo" hidden={tab !== "demo"}>

@@ -45,8 +45,8 @@ describe("return link", () => {
     render(<App />);
     const note = await screen.findByRole("note", NOTE);
     expect(note.textContent).toContain("UC-LEARN11");
-    expect((await screen.findByTestId("hosted-banner")).nextElementSibling).toBe(note);
-    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("hosted-banner")); // the bar first, then main opens with the banner
+    expect((await screen.findByTestId("sim-banner")).nextElementSibling).toBe(note);
+    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("sim-banner")); // the bar first, then main opens with the banner
     expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector("header.shell-bar .top-menu button.return-link--header")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: /Back to Customer Agent LAB/ })).toHaveLength(2);
