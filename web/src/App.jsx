@@ -207,7 +207,7 @@ export default function App() {
 
         <div className="grid two">
           <section aria-labelledby="pick-h" className="card">
-            <div className="card-head"><h2 id="pick-h">1. Pick something to try</h2></div>
+            <div className="card-head"><h2 id="pick-h"><span className="step-num" aria-hidden="true">1</span>Pick something to try</h2></div>
             <fieldset className="picker">
               <legend className="sr-only">Scenario</legend>
               {scenarios.map((s) => (
@@ -243,7 +243,7 @@ export default function App() {
         {result && (
           <section aria-labelledby="res-h" className="card result" data-testid="result">
             <div className="card-head">
-              <h2 id="res-h">Result: <Inert text={result.title} /></h2>
+              <h2 id="res-h"><span className="step-num" aria-hidden="true">2</span>Result: <Inert text={result.title} /></h2>
               {result.knownLimit && <StandIn>{result.knownLimit === "miss" ? "STAND-IN MISS" : "STAND-IN FALSE ALARM"}</StandIn>}
             </div>
             {result.teaches && <p>{result.teaches}</p>}
