@@ -40,9 +40,11 @@ main:focus:not(:focus-visible) { outline: none; }
 .grid.two { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 980px) { .grid.two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } .grid.two.even { grid-template-columns: 1fr 1fr; } }
 .grid > .card { margin-bottom: 0; }
+.step-num { display: inline-grid; place-items: center; min-width: 1.4rem; height: 1.4rem; border-radius: 999px; background: var(--accent-gradient); color: var(--on-accent); font: 700 0.75rem var(--font-mono); margin-right: 0.5em; vertical-align: 2px; }
 
 .story { margin-bottom: 16px; }
-.story-strip { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 0; margin: 0 0 8px; }
+.story-strip { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0; margin: 0 0 8px; }
+@media (max-width: 900px) { .story-strip { grid-template-columns: 1fr; } }
 .story-strip li { display: flex; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
 .story-strip p { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
 .story-n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; display: grid; place-items: center; }
