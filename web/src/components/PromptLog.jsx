@@ -109,7 +109,7 @@ export default function PromptLog({ keyring, setKeyring, resetKey, signal, limit
                   <td>
                     {opened[r.id]?.error && <span className="fault-note" role="alert">{opened[r.id].error}</span>}
                     {opened[r.id]?.text !== undefined && (
-                      <Json value={opened[r.id].text} label="Opened record" testId={`opened-${r.id}`} hot={["prompt", "response", "truncated"]} />
+                      <Json value={opened[r.id].text} label="Opened record" testId={`opened-${r.id}`} hot={["prompt", "response"]} />
                     )}
                     {opened[r.id]?.text === undefined && <><span className="fine">sealed ({r.envelope?.ct?.length ?? 0} characters){r.truncated ? ", cut at MaxBytes" : ""} </span><button type="button" className="btn" onClick={() => open(r)} data-testid={`open-${r.id}`}>Open in this page</button></>}
                   </td>
