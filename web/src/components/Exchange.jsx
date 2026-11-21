@@ -24,8 +24,8 @@ export default function Exchange({ run }) {
         <div key={st.stage} className="exchange" data-testid={`exchange-${st.stage}`}>
           <h3>{st.stage === "request" ? "Request direction" : "Response direction"}</h3>
           <div className="panes">
-            <Pane title="Gateway sends" sub="POST /inspect" value={st.exchange.request} hot={["units", "text", "direction"]} />
-            <Pane title="Sidecar answers" sub={st.exchange.response.status ? `HTTP ${st.exchange.response.status}` : "no answer"} value={st.exchange.response.body ?? { error: st.exchange.response.error }} hot={["findings", "category", "severity"]} />
+            <Pane title="Gateway sends" sub="POST /inspect" value={st.exchange.request} hot={["text"]} />
+            <Pane title="Sidecar answers" sub={st.exchange.response.status ? `HTTP ${st.exchange.response.status}` : "no answer"} value={st.exchange.response.body ?? { error: st.exchange.response.error }} hot={["category"]} />
           </div>
         </div>
       ))}
