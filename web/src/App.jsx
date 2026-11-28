@@ -18,6 +18,8 @@ import StandInPanel from "./components/StandInPanel.jsx";
 import Log from "./components/Log.jsx";
 import Inert from "./components/Inert.jsx";
 import TalkTrack from "./components/TalkTrack.jsx";
+import HelpDialog from "./help-dialog/HelpDialog.jsx";
+import { HELP_SECTIONS } from "./helpContent";
 import SimulationBanner from "./components/SimulationBanner.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import H2Tab from "./components/H2Tab.jsx";
@@ -55,6 +57,7 @@ export default function App() {
   const [keyring, setKeyring] = useState([]);
   const [resetKey, setResetKey] = useState(0);
   const [showTalk, setShowTalk] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const saveTimer = useRef(null);
   const latest = useRef({});
 
@@ -183,7 +186,7 @@ export default function App() {
           mode={{ value: info?.source === "real" ? "real" : "mock", onChange: onSelectMode, realAvailable: info ? info.realAvailable === true : null, realHint: info?.realReason }}
           theme={{ value: theme, onChange: setTheme }}
           present={{ active: presenterOn(), onToggle: () => setPresenter(!presenterOn()), label: "Present" }}
-          help={{ href: "https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" }}
+          help={{ onClick: () => setHelpOpen(true), title: "What this lab is, and what is simulated" }}
           version={info?.version || null}
           onReset={doReset}
           talkTrack={{ active: showTalk, onToggle: () => setShowTalk((v) => !v) }}
@@ -202,6 +205,7 @@ export default function App() {
         <p className="lede">How an external guardrail sidecar plugs into an agent gateway. A mock gateway sends text to a stand-in sidecar over loopback HTTP and applies its answer. Pick a scenario, press Simulate, then change the thresholds or break the sidecar.</p>
         <Story />
         {showTalk && <TalkTrack />}
+        <HelpDialog isOpen={helpOpen} onClose={() => setHelpOpen(false)} sections={HELP_SECTIONS} docsUrl="https://github.com/curtismu7/ai-guard-sidecar-LAB#readme" />
         {error && <p role="alert" className="error" data-testid="error">{error}</p>}
         <p className="sr-only" role="status" aria-live="polite" data-testid="status">{status}</p>
 
