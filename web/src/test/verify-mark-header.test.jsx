@@ -27,7 +27,7 @@ beforeEach(() => {
     throw new Error(`unexpected ${url}`);
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
 describe("verification mark in the header", () => {
   it("shows this lab's own mark beside the Shelf link, and no other lab's", async () => {

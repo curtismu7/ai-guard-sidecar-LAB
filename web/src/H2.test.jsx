@@ -53,7 +53,7 @@ beforeEach(() => {
     throw new Error(`unexpected ${method} ${url}`);
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
 const ready = async () => { const user = userEvent.setup(); render(<App />); await screen.findByLabelText("Benign prompt"); return user; };
 const openH2 = async (user) => { await user.click(screen.getByTestId("tab-h2")); await screen.findByTestId("numbers"); };

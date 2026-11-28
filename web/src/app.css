@@ -128,9 +128,9 @@ td .verdict, .recorded .verdict, .live .verdict { margin-left: 0; }
 .result .tabs { margin: 8px 0; }
 .foot { color: var(--muted); font-size: .8rem; margin: 8px 0 24px; max-width: 100ch; }
 
-/* H2 2026 release: the banner (on every view) and the claim tags. */
+/* H2 2026 release: the release banner (on every view) and the claim tags. */
 .release-banner { margin: 0 0 12px; padding: 6px 12px; font-weight: 700; text-align: center; background: var(--surface-2); color: var(--status-warn); border: 1px solid var(--status-warn); border-radius: 8px; }
-.return-link--strip + .release-banner { margin-top: 12px; } /* the hand-off strip sits right below the hosted banner, above this one */
+.return-link--strip + .release-banner { margin-top: 12px; } /* the hand-off strip sits right at the top of main, above this one */
 .stack { display: grid; gap: 16px; }
 .stack > .card { margin-bottom: 0; }
 .badge-tag { cursor: help; }

@@ -6,7 +6,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.jsx";
 import Log from "./components/Log.jsx";
-import { MOCK_TEXT, REAL_TEXT } from "./components/SimulationBanner.jsx";
 import { setJsonView } from "./components/JsonPane.jsx";
 import { POLICY, benignRun, injectionRun, outageRun } from "./test/fixtures.js";
 
@@ -27,6 +26,7 @@ const STAND_IN = { notice: "A deterministic keyword stand-in.", limits: [
 let INFO = { mode: "local", hosted: false, banner: null };
 let calls; let runs;
 beforeEach(() => {
+  sessionStorage.clear(); // the modal is shown once per mode per session
   setJsonView("raw"); // the Form | JSON choice is shared module state; these tests read the JSON text
   calls = []; runs = { benign: [benignRun()], "direct-injection": [injectionRun()], "outage-502": [outageRun(true), outageRun(false)] };
   document.documentElement.removeAttribute("data-theme");
@@ -56,42 +56,69 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const ready = async () => { render(<App />); await screen.findByLabelText("Benign prompt"); };
 
 describe("App", () => {
-  it("shows the local Mock banner as main's first child in the local demo (no hosted text, not live)", async () => {
+  it("opens on the MOCK modal in the local demo, with no old banner, and Got it closes it for the session", async () => {
     await ready();
-    const banner = screen.getByTestId("sim-banner");
-    expect(banner).toHaveTextContent(MOCK_TEXT);
-    expect(banner).not.toHaveTextContent("HOSTED");
-    expect(banner).toHaveClass("banner");
-    expect(banner).toHaveAttribute("role", "note");
-    expect(banner).not.toHaveAttribute("data-state");
-    expect(document.querySelector("main").firstElementChild).toBe(banner);
+    const modal = await screen.findByTestId("mode-modal");
+    expect(modal).toHaveAttribute("data-mode", "mock");
+    expect(modal).toHaveTextContent("MOCK");
+    expect(modal).toHaveTextContent(/simulated.*keyword stand-in.*not a real classifier.*No tenant, no network, no credentials/);
+    expect(modal).not.toHaveTextContent("Hosted");
+    expect(screen.getByTestId("mode-modal-ok")).toHaveFocus();
+    // the long banner is gone: no element of that name or class and no banner paragraph (the H2 release banner is a different thing and stays)
+    expect(screen.queryByTestId("sim-banner")).toBeNull();
+    expect(document.querySelector(".banner")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Mock mode: the mock gateway sends text/);
+    expect(screen.getByTestId("release-banner")).toBeInTheDocument();
     expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByTestId("mode-modal-ok"));
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
+    cleanup();
+    await ready(); // same browser session: not shown again
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
   });
 
-  it("shows the local Mock banner as main's first child while /api/info is pending, and when it fails", async () => {
+  it("shows the MOCK modal while /api/info is pending, and when it fails", async () => {
     const base = globalThis.fetch;
     for (const info of [() => new Promise(() => {}), async () => { throw new TypeError("network down"); }]) {
+      sessionStorage.clear();
       vi.stubGlobal("fetch", vi.fn((url, init) => (url === "/api/info" ? info() : base(url, init))));
       await ready();
-      const banner = screen.getByTestId("sim-banner");
-      expect(banner).toHaveTextContent(MOCK_TEXT);
-      expect(banner).toHaveClass("banner");
-      expect(banner).toHaveAttribute("role", "note");
-      expect(banner).not.toHaveAttribute("data-state");
-      expect(document.querySelector("main").firstElementChild).toBe(banner);
+      const modal = await screen.findByTestId("mode-modal");
+      expect(modal).toHaveAttribute("data-mode", "mock");
+      expect(modal).toHaveTextContent(/No tenant, no network, no credentials/);
+      expect(modal).not.toHaveTextContent("Hosted");
       cleanup();
     }
   });
 
-  it("shows the server's hosted-and-simulated banner above the app, and sends the workspace id on every call", async () => {
+  it("hosted build: the modal says MOCK with the hosted-and-simulated line, and the workspace id goes on every call", async () => {
     INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic." };
     await ready();
-    expect(screen.getByTestId("sim-banner")).toHaveTextContent("HOSTED SIMULATION: every decision here is synthetic.");
-    expect(screen.getByTestId("sim-banner")).not.toHaveAttribute("data-state");
-    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("sim-banner"));
+    const modal = await screen.findByTestId("mode-modal");
+    await waitFor(() => expect(modal).toHaveTextContent("Hosted and simulated"));
+    expect(modal).toHaveAttribute("data-mode", "mock");
+    expect(modal).toHaveTextContent(/every decision here is synthetic.*keyword stand-in, not a real classifier.*No tenant, no network, no credentials.*private to this browser tab and held in memory only/);
+    expect(screen.queryByTestId("sim-banner")).toBeNull();
+    expect(document.body.textContent).not.toContain("HOSTED SIMULATION");
     const id = calls.find((c) => c.url === "/api/info").headers["X-Workspace-Id"];
     expect(id).toMatch(/^w-[0-9a-f]{12}$/);
     expect(calls.every((c) => c.headers["X-Workspace-Id"] === id)).toBe(true);
+    INFO = { mode: "local", hosted: false, banner: null };
+  });
+
+  it("a lab that comes up in Real mode shows REAL once /api/info answers, even after the pending MOCK was dismissed", async () => {
+    INFO = { mode: "local", hosted: false, banner: null, source: "real", realAvailable: true };
+    const base = globalThis.fetch;
+    let release; const gate = new Promise((r) => { release = r; });
+    vi.stubGlobal("fetch", vi.fn(async (url, init) => { if (url === "/api/info") await gate; return base(url, init); }));
+    await ready();
+    expect((await screen.findByTestId("mode-modal")).getAttribute("data-mode")).toBe("mock");
+    fireEvent.click(screen.getByTestId("mode-modal-ok"));
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
+    release();
+    await waitFor(() => expect(screen.getByTestId("mode-modal")).toHaveAttribute("data-mode", "real"));
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/REAL/);
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/AI_GUARD_SIDECAR_URL.*findings come from it.*still this demo's/);
     INFO = { mode: "local", hosted: false, banner: null };
   });
 
@@ -117,18 +144,18 @@ describe("App", () => {
     INFO = { mode: "local", hosted: false, banner: null, source: "real", realAvailable: true };
     await ready();
     expect(screen.getByTestId("mode-select").value).toBe("real");
-    expect(screen.getByTestId("sim-banner")).toHaveTextContent(REAL_TEXT);
-    expect(screen.getByTestId("sim-banner")).toHaveAttribute("data-state", "live");
+    expect(await screen.findByTestId("mode-modal")).toHaveAttribute("data-mode", "real");
+    fireEvent.click(screen.getByTestId("mode-modal-ok"));
     const before = calls.filter((c) => c.url === "/api/scenarios").length;
     fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "mock" } });
     await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("mock"));
-    expect(screen.getByTestId("sim-banner")).toHaveTextContent(MOCK_TEXT);
-    expect(screen.getByTestId("sim-banner")).not.toHaveAttribute("data-state");
+    expect(await screen.findByTestId("mode-modal")).toHaveAttribute("data-mode", "mock"); // switching shows the modal for the new mode
+    fireEvent.click(screen.getByTestId("mode-modal-ok"));
     expect(calls.find((c) => c.url === "/api/mode").body).toEqual({ source: "mock" });
     expect(calls.filter((c) => c.url === "/api/scenarios").length).toBeGreaterThan(before);
     fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "real" } });
     await waitFor(() => expect(screen.getByTestId("mode-select").value).toBe("real"));
-    expect(screen.getByTestId("sim-banner")).toHaveAttribute("data-state", "live");
+    expect(screen.queryByTestId("mode-modal")).toBeNull(); // Real was dismissed earlier in this session: it stays dismissed
     INFO = { mode: "local", hosted: false, banner: null };
   });
 

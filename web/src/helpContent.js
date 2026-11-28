@@ -26,6 +26,6 @@ export const HELP_SECTIONS = [
   },
   {
     heading: "Mock and Real",
-    body: "The Mock/Real switch changes which sidecar every call goes to. In Mock everything is in-process stand-ins and loopback only; nothing real is contacted. Real is only available if a real sidecar was configured for this deployment; the header badge and the banner say which you are on."
+    body: "The Mock/Real switch changes which sidecar every call goes to. In Mock everything is in-process stand-ins and loopback only; nothing real is contacted. Real is only available if a real sidecar was configured for this deployment; the header badge and the window that opens with the page (MOCK or REAL) say which you are on."
   }
 ];

@@ -16,7 +16,7 @@ npm start           # http://127.0.0.1:6500 (embedded sidecar 6502); build first
 npm run sidecar     # standalone sidecar on 6501 (refused under MODE=se-mock)
 ```
 
-Mode: `MODE=local` (default) is the demo. `MODE=se-mock` is the mock-only SE k8s build (rule 18): live settings refused, per-visitor workspaces (`X-Workspace-Id`), a hosted banner, manifests in `k8s/`. See [docs/k8s.md](docs/k8s.md). Nothing is deployed from here; the first SE deploy needs owner approval.
+Mode: `MODE=local` (default) is the demo. `MODE=se-mock` is the mock-only SE k8s build (rule 18): live settings refused, per-visitor workspaces (`X-Workspace-Id`), a hosted line in the MOCK modal, manifests in `k8s/`. See [docs/k8s.md](docs/k8s.md). Nothing is deployed from here; the first SE deploy needs owner approval.
 
 Ports: 6500 app, 6501 sidecar, 6502 embedded sidecar, 6510 Vite, 6520/6521 e2e, 6530-6549 tests. Everything stays in 6500-6549.
 
@@ -30,6 +30,7 @@ Ports: 6500 app, 6501 sidecar, 6502 embedded sidecar, 6510 Vite, 6520/6521 e2e, 
 - Never parse `node:test` stdout; use the exit code.
 - Forbidden-strings history scan must print 0; gitleaks runs in the pre-commit hook (`.githooks`). Never print the forbidden list.
 - Docker is OrbStack only, never Docker Desktop. Compose publishes `127.0.0.1:6500` only.
+- Real-or-mock modal: `web/src/mode-modal/` is vendored byte for byte from `AI-DEMO-Standalone/shared/mode-modal` (pin `mode-modal.sha256`, checked by `web/src/test/mode-modal.pin.test.js`); never edit it, change `shared/mode-modal/` first. It replaced the simulation banner; the lab's lines (local Mock, hosted, Real) are `MODE_LINES` in `web/src/App.jsx`. The H2 `release-banner` is a different thing (a claim tag) and stays. A Playwright or walk script must close the modal first (`mode-modal-ok`) or set sessionStorage `ai-guard-sidecar-mode-seen-mock`/`-seen-real` to `1`.
 - Mock-issued values are labelled. Product claims about the `/inspect` contract and gateway behaviour are UNVERIFIED unless a source is added; the detector is a stand-in.
 
 ## H2 2026 release additions (Ping release claims, UNVERIFIED on our tenant)
