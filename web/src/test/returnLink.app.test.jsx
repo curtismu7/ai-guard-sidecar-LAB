@@ -10,7 +10,7 @@ import App from "../App.jsx";
 import { POLICY } from "./fixtures.js";
 
 // The same fetch stub shape as App.test.jsx: this app's api module calls fetch, so the tests stub fetch.
-// The hosted banner is on so the test can check the strip sits right below it.
+// The hosted build is on, so the test also checks that the Real-or-mock modal is not what the strip sits below.
 const SCENARIOS = [{ id: "benign", title: "Benign prompt", teaches: "No findings means allow.", knownLimit: null, runs: [{ label: "Allowed", caller: null, failClosed: null }] }];
 const CONFIG = { gateway: structuredClone(POLICY), sidecar: { detector: { threshold: 0.9, benignLabels: ["benign"] }, rails: { injection: true, regex_pii: true } }, fault: { mode: "none", delayMs: 0 }, callers: {} };
 const INFO = { mode: "se-mock", hosted: true, banner: "HOSTED SIMULATION: every decision here is synthetic." };
@@ -26,7 +26,7 @@ beforeEach(() => {
     throw new Error(`unexpected ${url}`);
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); sessionStorage.clear(); });
 
 const NOTE = { name: "Opened from Customer Agent LAB" };
 
@@ -40,13 +40,13 @@ describe("return link", () => {
     for (const [h, f] of pins) expect(createHash("sha256").update(fs.readFileSync(path.join(dir, f))).digest("hex"), f).toBe(h);
   });
 
-  it("?from=customer-agent: banner first, strip right below, header Back in the tools", async () => {
+  it("?from=customer-agent: the strip opens main (no banner above it), header Back in the tools", async () => {
     window.history.replaceState(null, "", "/?from=customer-agent&uc=UC-LEARN11&vertical=banking");
     render(<App />);
     const note = await screen.findByRole("note", NOTE);
     expect(note.textContent).toContain("UC-LEARN11");
-    expect((await screen.findByTestId("sim-banner")).nextElementSibling).toBe(note);
-    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("sim-banner")); // the bar first, then main opens with the banner
+    expect(screen.queryByTestId("sim-banner")).toBeNull();
+    expect(document.querySelector("main").firstElementChild).toBe(note); // the bar first, then main opens with the strip
     expect(document.querySelector("header.shell-bar").compareDocumentPosition(document.querySelector("main")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector("header.shell-bar .top-menu button.return-link--header")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: /Back to Customer Agent LAB/ })).toHaveLength(2);

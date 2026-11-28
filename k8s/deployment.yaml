@@ -1,6 +1,6 @@
 # MOCK-ONLY hosted build of ai-guard-sidecar for the SE cluster (rule 18). Same image and Dockerfile as the standalone,
-# MODE=se-mock: live features are refused at startup, each visitor gets a workspace (X-Workspace-Id), and the banner says
-# HOSTED SIMULATION. No secrets, no tenant ids, no volumes with data. The __IMAGE__ token is filled by k8s/deploy.sh;
+# MODE=se-mock: live features are refused at startup, each visitor gets a workspace (X-Workspace-Id), and the UI opens
+# on a MOCK modal with a hosted-and-simulated line (/api/info still sends the HOSTED SIMULATION text). No secrets, no tenant ids, no volumes with data. The __IMAGE__ token is filled by k8s/deploy.sh;
 # nothing here names a real host or registry path.
 apiVersion: apps/v1
 kind: Deployment

@@ -53,7 +53,15 @@ try {
   const recorded = async () => (await page.getByTestId('recorded').innerText());
 
   await page.goto(`${base}/`);
+  // The Real-or-mock modal opens first (it sits over the page, so close it before the walk clicks anything).
+  await page.getByTestId('mode-modal').waitFor();
+  check((await page.getByTestId('mode-modal').getAttribute('data-mode')) === 'mock' && /MOCK/.test(await page.getByTestId('mode-modal').innerText()), 'the page opens on the MOCK modal');
+  check((await page.locator('.banner, [data-testid=sim-banner]').count()) === 0, 'the old simulation banner is gone');
+  await page.getByTestId('mode-modal-ok').click();
+  check((await page.getByTestId('mode-modal').count()) === 0, 'Got it closes the modal');
+  await page.reload();
   await page.getByTestId('mode-badge').waitFor();
+  check((await page.getByTestId('mode-modal').count()) === 0, 'a same-session reload does not show the modal again');
   const badge = await page.getByTestId('mode-badge').innerText();
   check(/DEMO/.test(badge) && /STAND-IN/.test(badge) && /UNVERIFIED/.test(badge), 'header shows DEMO, STAND-IN and UNVERIFIED badges');
   check((await page.locator('.badge-warn').count()) >= 6 && (await page.locator('.badge-info').count()) >= 5, 'UNVERIFIED and STAND-IN badges sit beside the diagram, exchange, findings, thresholds and outage panels');

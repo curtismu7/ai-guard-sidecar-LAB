@@ -175,7 +175,7 @@ The image is a two-stage build (the web UI is built in stage 1 and `web/dist` is
 ## Mock-only SE build (MODE=se-mock)
 
 The same image with `MODE=se-mock` is the hosted build for the SE cluster: live features are refused at startup, every
-visitor gets a workspace (`X-Workspace-Id`), and the UI shows a "hosted and simulated" banner. Manifests and the deploy
+visitor gets a workspace (`X-Workspace-Id`), and the UI opens on a MOCK modal with a "hosted and simulated" line. Manifests and the deploy
 script are in `k8s/`. Nothing is deployed from this repo; the first deploy needs the owner's approval. See
 [docs/k8s.md](docs/k8s.md) for what is refused, the state inventory and the residual risks.
 

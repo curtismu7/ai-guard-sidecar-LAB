@@ -20,7 +20,7 @@ import Inert from "./components/Inert.jsx";
 import TalkTrack from "./components/TalkTrack.jsx";
 import HelpDialog from "./help-dialog/HelpDialog.jsx";
 import { HELP_SECTIONS } from "./helpContent";
-import SimulationBanner from "./components/SimulationBanner.jsx";
+import ModeModal from "./mode-modal/ModeModal.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import H2Tab from "./components/H2Tab.jsx";
 import { getWorkspaceId } from "./lib/workspace.js";
@@ -33,6 +33,12 @@ const readTheme = () => {
 const MAX_TEXT = 4000;
 // The release banner: every product claim about the H2 2026 release is Ping's, and not checked on our tenant.
 const RELEASE_BANNER = "Ping release claim, UNVERIFIED on our tenant";
+// The Real-or-mock modal's lines (it replaced the simulation banner). The hosted build is Mock only and has its own Mock line; until /api/info answers, or if it fails, the local Mock line shows.
+const MODE_LINES = {
+  mock: "Everything on this page is simulated: the mock gateway sends text to the embedded stand-in sidecar, a deterministic keyword stand-in and not a real classifier. No tenant, no network, no credentials.",
+  hosted: "Hosted and simulated: every decision here is synthetic and the detector is a deterministic keyword stand-in, not a real classifier. No tenant, no network, no credentials. Your workspace is private to this browser tab and held in memory only.",
+  real: "Calls go to the external sidecar set by AI_GUARD_SIDECAR_URL, and the findings come from it. The gateway, its thresholds and the scenarios are still this demo's.",
+};
 const TABS = [["demo", "Sidecar demo"], ["h2", "H2 2026 release"]];
 
 export default function App() {
@@ -197,7 +203,6 @@ export default function App() {
         </TopMenu>
       </header>
       <main id="main" tabIndex={-1}>
-        <SimulationBanner info={info} />
         <ReturnLink app="ai-guard-sidecar" />
         <p role="note" className="release-banner" data-testid="release-banner">{RELEASE_BANNER}</p>
         <section id="panel-demo" aria-labelledby="tab-demo" hidden={tab !== "demo"}>
@@ -291,6 +296,7 @@ export default function App() {
           )}
         </section>
       </main>
+      <ModeModal mode={info?.source === "real" && !info.hosted ? "real" : "mock"} lines={{ mock: info?.hosted ? MODE_LINES.hosted : MODE_LINES.mock, real: MODE_LINES.real }} storageKey="ai-guard-sidecar-mode" />
     </>
   );
 }
